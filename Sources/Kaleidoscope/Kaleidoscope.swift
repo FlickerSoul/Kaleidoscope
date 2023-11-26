@@ -1,11 +1,20 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 
-/// A macro that produces both a value and a string containing the
-/// source code that generated the value. For example,
+import SwiftSyntax
+
+/// A macro that generates a enum case.
+/// For example,
 ///
-///     #stringify(x + y)
+///     enum Tokens {
+///         #caseGen("def")
+///     }
 ///
-/// produces a tuple `(x + y, "x + y")`.
-@freestanding(expression)
-public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "KaleidoscopeMacros", type: "StringifyMacro")
+/// will yield
+///
+///     enum Tokens {
+///         case def
+///     }
+///
+@freestanding(declaration, names: arbitrary)
+public macro caseGen(_ value: String) = #externalMacro(module: "KaleidoscopeMacros", type: "CaseGenerator")

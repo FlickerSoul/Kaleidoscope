@@ -1,8 +1,13 @@
 //
-//  File.swift
-//  
+//  Errors.swift
 //
-//  Created by Larry Zeng on 11/26/23.
+//
+//  Created by Larry Zeng on 11/25/23.
 //
 
 import Foundation
+
+
+enum kaleidoscopeError: Error {
+    case SyntaxError
+}

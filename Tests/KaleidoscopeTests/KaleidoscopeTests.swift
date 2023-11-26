@@ -7,36 +7,24 @@ import XCTest
 import KaleidoscopeMacros
 
 let testMacros: [String: Macro.Type] = [
-    "stringify": StringifyMacro.self,
+    "caseGen": CaseGenerator.self,
 ]
 #endif
 
-final class KaleidoscopeTests: XCTestCase {
+final class kaleidoscopeTests: XCTestCase {
     func testMacro() throws {
         #if canImport(KaleidoscopeMacros)
         assertMacroExpansion(
             """
-            #stringify(a + b)
+            enum Tokens {
+                #caseGen("def")
+            }
             """,
             expandedSource: """
-            (a + b, "a + b")
+            enum Tokens {
+                case def
+            }
             """,
-            macros: testMacros
-        )
-        #else
-        throw XCTSkip("macros are only supported when running tests for the host platform")
-        #endif
-    }
-
-    func testMacroWithStringLiteral() throws {
-        #if canImport(KaleidoscopeMacros)
-        assertMacroExpansion(
-            #"""
-            #stringify("Hello, \(name)")
-            """#,
-            expandedSource: #"""
-            ("Hello, \(name)", #""Hello, \(name)""#)
-            """#,
             macros: testMacros
         )
         #else
