@@ -19,13 +19,11 @@ import SwiftSyntax
 @freestanding(declaration, names: arbitrary)
 public macro caseGen(_ value: String) = #externalMacro(module: "KaleidoscopeMacros", type: "CaseGenerator")
 
-
 @attached(peer)
 public macro token<T>(_ value: String, onMatch callback: (() -> T)? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
 
 @attached(peer)
 public macro regex<T>(_ value: String, onMatch callback: (() -> T)? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
-
 
 @attached(member)
 public macro kaleidoscope(skip chars: String) = #externalMacro(module: "KaleidoscopeMacros", type: "KaleidoscopeBuilder")

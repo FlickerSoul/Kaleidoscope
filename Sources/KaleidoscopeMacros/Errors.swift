@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 enum KaleidoscopeError: Error {
     case SyntaxError
 }

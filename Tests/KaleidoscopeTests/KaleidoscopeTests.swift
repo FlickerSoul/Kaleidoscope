@@ -33,7 +33,7 @@ final class kaleidoscopeTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
-    
+
     func testCaseTokenAttribute() throws {
         #if canImport(KaleidoscopeMacros)
         assertMacroExpansion(

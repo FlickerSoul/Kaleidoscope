@@ -14,4 +14,3 @@ public struct EnumCaseTokenType: PeerMacro {
         return []
     }
 }
-
