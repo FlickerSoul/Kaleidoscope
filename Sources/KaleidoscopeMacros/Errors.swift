@@ -8,6 +8,6 @@
 import Foundation
 
 
-enum kaleidoscopeError: Error {
+enum KaleidoscopeError: Error {
     case SyntaxError
 }

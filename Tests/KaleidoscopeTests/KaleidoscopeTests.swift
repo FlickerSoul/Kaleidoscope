@@ -6,13 +6,15 @@ import XCTest
 #if canImport(KaleidoscopeMacros)
 import KaleidoscopeMacros
 
-let testMacros: [String: Macro.Type] = [
+let enumCaseMacros: [String: Macro.Type] = [
     "caseGen": CaseGenerator.self,
+    "token": EnumCaseTokenType.self,
+    "regex": EnumCaseTokenType.self,
 ]
 #endif
 
 final class kaleidoscopeTests: XCTestCase {
-    func testMacro() throws {
+    func testCaseGeneration() throws {
         #if canImport(KaleidoscopeMacros)
         assertMacroExpansion(
             """
@@ -25,7 +27,28 @@ final class kaleidoscopeTests: XCTestCase {
                 case def
             }
             """,
-            macros: testMacros
+            macros: enumCaseMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+    
+    func testCaseTokenAttribute() throws {
+        #if canImport(KaleidoscopeMacros)
+        assertMacroExpansion(
+            """
+            enum Tokens {
+                @token("def")
+                case def
+            }
+            """,
+            expandedSource: """
+            enum Tokens {
+                case def
+            }
+            """,
+            macros: enumCaseMacros
         )
         #else
         throw XCTSkip("macros are only supported when running tests for the host platform")

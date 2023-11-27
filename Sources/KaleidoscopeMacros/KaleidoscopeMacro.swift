@@ -11,7 +11,6 @@ public struct CaseGenerator: DeclarationMacro {
         
         return ["case \(caseNameExpr.segments)"]
     }
-    
 }
 
 
@@ -19,5 +18,6 @@ public struct CaseGenerator: DeclarationMacro {
 struct kaleidoscopePlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         CaseGenerator.self,
+        EnumCaseTokenType.self
     ]
 }
