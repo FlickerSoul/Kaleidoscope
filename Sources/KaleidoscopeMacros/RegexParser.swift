@@ -258,7 +258,7 @@ public extension HIR {
 
 // MARK: - HIR Equatable
 
-extension HIR: Equatable {}
+extension HIR: Hashable, Equatable {}
 
 // MARK: - HIR priority
 

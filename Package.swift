@@ -21,6 +21,7 @@ let package = Package(
     dependencies: [
         // Depend on the Swift 5.9 release of SwiftSyntax
         .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMajor(from: "1.0.5")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -31,14 +32,16 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-            ]
+                .product(name: "OrderedCollections", package: "swift-collections"),
+            ],
+            swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
         ),
 
         // Library that exposes a macro as part of its API, which is used in client programs.
-        .target(name: "Kaleidoscope", dependencies: ["KaleidoscopeMacros"]),
+        .target(name: "Kaleidoscope", dependencies: ["KaleidoscopeMacros"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
 
         // A client of the library, which is able to use the macro in its own code.
-        .executableTarget(name: "KaleidoscopeClient", dependencies: ["Kaleidoscope"]),
+        .executableTarget(name: "KaleidoscopeClient", dependencies: ["Kaleidoscope"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
 
         // A test target used to develop the macro implementation.
         .testTarget(
@@ -46,7 +49,8 @@ let package = Package(
             dependencies: [
                 "KaleidoscopeMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ]
+            ],
+            swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
         ),
     ]
 )
