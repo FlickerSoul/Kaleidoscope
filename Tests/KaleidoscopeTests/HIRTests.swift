@@ -25,18 +25,11 @@ func disemableString(_ string: String) -> HIR {
 }
 
 final class HIRTests: XCTestCase {
-    func testHIRGeneration() throws {
+    func testHIRRegexGeneration() throws {
         let testCases: [(String, Result<HIR, HIRParsingError>)] = try [
             (
                 "ab",
-                .success(
-                    .Concat(
-                        [
-                            .Literal(string: "a"),
-                            .Literal(string: "b"),
-                        ]
-                    )
-                )
+                .success(disemableString("ab"))
             ),
             (
                 "a*",
@@ -48,12 +41,17 @@ final class HIRTests: XCTestCase {
             ),
             (
                 "[a-z]",
-                .success(.Alternation(generateCharacters("a", "z")))
+                .success(.Class(.Alternation(generateCharacters("a", "z"))))
             ),
             (
                 "[a-c]+?",
-                .success(.Concat([.Alternation(generateCharacters("a", "c")), .Loop(.Alternation(generateCharacters("a", "c")))]))
+                .success(.Concat([.Class(.Alternation(generateCharacters("a", "c"))), .Loop(.Class(.Alternation(generateCharacters("a", "c"))))]))
             ),
+            (
+                "[a-cx-z]+?",
+                .success(.Concat([.Class(.Alternation([.Alternation(generateCharacters("a", "c")), .Alternation(generateCharacters("x", "z"))])), .Loop(.Class(.Alternation([.Alternation(generateCharacters("a", "c")), .Alternation(generateCharacters("x", "z"))])))]))
+            ),
+
             (
                 "(foo)+?",
                 .success(.Concat([disemableString("foo"), .Loop(disemableString("foo"))]))
@@ -79,6 +77,24 @@ final class HIRTests: XCTestCase {
                         XCTAssertEqual(actual as! HIRParsingError, error, "Parsing `\(regexContent)`, expecting \(error), but got \(actual)")
                     }
                 }
+            }
+        }
+    }
+
+    func testHIRPriority() throws {
+        let tests: [(String, UInt)] = [
+            ("ab", 4),
+            ("[a-b]", 1),
+            ("a|b", 2),
+            ("(foo|bar)+?", 6),
+            ("(foo|long)+?(bar)", 12),
+        ]
+
+        for (regexContent, expected) in tests {
+            let hir = try! HIR(regex: regexContent)
+            XCTContext.runActivity(named: "Test Priority of Regex `\(regexContent)`") { _ in
+                let actual = hir.priority()
+                XCTAssertEqual(actual, expected, "The priority should be \(expected) instead of \(actual)")
             }
         }
     }

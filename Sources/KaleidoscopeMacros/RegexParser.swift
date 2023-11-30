@@ -27,6 +27,7 @@ public indirect enum HIR {
     case Loop(HIR)
     case Maybe(HIR)
     case Literal(string: String)
+    case Class(HIR)
 }
 
 public enum HIRParsingError: Error {
@@ -233,7 +234,7 @@ public extension HIR {
             }
         }
 
-        return members.wrapOrExtract(wrapper: HIR.Alternation)
+        return .Class(members.wrapOrExtract(wrapper: HIR.Alternation))
     }
 
     internal static func processRange(child: HIR, kind: RepetitionRange) -> HIR {
@@ -266,12 +267,19 @@ public extension HIR {
         switch self {
         case .Empty, .Loop, .Maybe:
             return 0
-        case .Literal:
+        case .Class:
             return 1
+        case .Literal:
+            return 2
         case .Concat(let children):
             return children.map { $0.priority() }.reduce(0, +)
         case .Alternation(let children):
-            return children.map { $0.priority() }.reduce(0, min)
+            if children.count > 0 {
+                let priorities = children.map { $0.priority() }
+                return priorities.reduce(priorities[0], min)
+            } else {
+                return 0
+            }
         }
     }
 }
