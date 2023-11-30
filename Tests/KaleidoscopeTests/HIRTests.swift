@@ -81,6 +81,20 @@ final class HIRTests: XCTestCase {
         }
     }
 
+    func testHIRTokenGeneration() throws {
+        let tests: [(String, HIR)] = [
+            ("\\w", disemableString("\\w")),
+            ("\\[a-b\\]", disemableString("\\[a-b\\]")),
+        ]
+
+        for (tokenContent, expected) in tests {
+            XCTContext.runActivity(named: "Test Token Generation `\(tokenContent)`") { _ in
+                let actual = try! HIR(token: tokenContent)
+                XCTAssertEqual(actual, expected, "The HIR generated for token `\(tokenContent)` is incorrect")
+            }
+        }
+    }
+
     func testHIRPriority() throws {
         let tests: [(String, UInt)] = [
             ("ab", 4),
