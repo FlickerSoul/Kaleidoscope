@@ -20,13 +20,13 @@ import Foundation
 /// [Regex AST API](https://swiftinit.org/docs/swift/_regexparser/ast)
 /// - SeeAlso
 /// [AST Node API](https://swiftinit.org/docs/swift/_regexparser/ast/node)
-public indirect enum HIR {
+public indirect enum HIR: Hashable {
     case Empty
     case Concat([HIR])
     case Alternation([HIR])
     case Loop(HIR)
     case Maybe(HIR)
-    case Literal(string: String)
+    case Literal(Character)
     case Class(HIR)
 }
 
@@ -165,25 +165,26 @@ public extension HIR {
     }
 
     internal init(_ quote: AST.Quote) {
-        self = .Literal(string: quote.literal)
+        self = .Concat(quote.literal.map(HIR.Literal))
     }
 
     internal init(_ atom: AST.Atom) throws {
         switch atom.kind {
         case .char(let char):
-            self = .Literal(string: String(char))
+            self = .Literal(char)
         case .scalar(let scalar):
-            self = .Literal(string: String(scalar.value))
+            self = .Literal(Character(scalar.value))
         case .scalarSequence(let scalarSequence):
-            self = scalarSequence.scalarValues.map { .Literal(string: String($0)) }.wrapOrExtract(wrapper: HIR.Concat)
+            let scalarsView = scalarSequence.scalarValues.map { HIR.Literal(.init($0)) }
+            self = .Concat(scalarsView)
         case .escaped(let escaped):
-            self = .Literal(string: String(escaped.character))
+            self = .Literal(escaped.character)
         case .dot:
-            self = .Literal(string: ".")
+            self = .Literal(".")
         case .caretAnchor:
-            self = .Literal(string: "^")
+            self = .Literal("^")
         case .dollarAnchor:
-            self = .Literal(string: "$")
+            self = .Literal("$")
         case _:
             throw HIRParsingError.NotSupportedAtomKind
         }
@@ -201,7 +202,7 @@ public extension HIR {
                     guard let unicode = UnicodeScalar($0) else {
                         throw HIRParsingError.IncorrectChar
                     }
-                    return .Literal(string: String(Character(unicode)))
+                    return .Literal(Character(unicode))
                 }
             )
         } else if case .scalar(let leftScalar) = lhs, case .scalar(let rightScalar) = rhs {
@@ -210,7 +211,7 @@ public extension HIR {
                     guard let unicode = UnicodeScalar($0) else {
                         throw HIRParsingError.IncorrectChar
                     }
-                    return .Literal(string: String(Character(unicode)))
+                    return .Literal(Character(unicode))
                 }
             )
         } else {
@@ -247,7 +248,7 @@ public extension HIR {
             children.append(.Loop(child))
         case .upToN(let right):
             children = (0 ..< right).map { _ in .Maybe(child) }
-        case .range(let left, let right): // TODO: is range [left, right) or [left, right], I think it's the later one?
+        case .range(let left, let right):
             children = (0 ..< left).map { _ in child }
             children.append(contentsOf: (left ..< right).map { _ in .Maybe(child) })
         }
@@ -255,10 +256,6 @@ public extension HIR {
         return children.wrapOrExtract(wrapper: HIR.Concat)
     }
 }
-
-// MARK: - HIR Equatable
-
-extension HIR: Hashable, Equatable {}
 
 // MARK: - HIR priority
 
