@@ -21,31 +21,6 @@ enum GraphError: Error {
     case EmptyChildren
 }
 
-// MARK: - Callback Types
-
-public protocol GetResult {
-    func get<R>() throws -> R?
-}
-
-public enum CallbackResult<T> {
-    case skip
-    case match(T)
-    case error(Error)
-}
-
-extension CallbackResult: GetResult {
-    public func get<R>() throws -> R? {
-        switch self {
-        case .skip: return nil
-        case .match(let res): return (res as! R)
-        case .error(let err): throw err
-        }
-    }
-}
-
-public typealias MatchCallbackType = () -> GetResult
-public typealias ExactMatchCallbackType<T> = () -> CallbackResult<T>
-
 // MARK: - Grpah Node
 
 public typealias NodeId = UInt
@@ -66,7 +41,7 @@ public enum Node {
     /// the state that can lead to multiple states
     case Branch(Node.BranchContent)
 
-    func shake<T>(marks: inout [Bool], graph: inout Graph<T>) {
+    func shake(marks: inout [Bool], graph: inout Graph) {
         switch self {
         case .Leaf:
             break
@@ -89,7 +64,7 @@ public enum Node {
         }
     }
 
-    func shake<T>(marks: inout [Bool], indexMapping: inout [Int?], newNodes: inout [Node?], oldIndex: Int, newIndex: Int, graph: inout Graph<T>) throws {
+    func shake(marks: inout [Bool], indexMapping: inout [Int?], newNodes: inout [Node?], oldIndex: Int, newIndex: Int, graph: inout Graph) throws {
         marks[oldIndex] = false
 
         switch self {
@@ -167,7 +142,7 @@ public extension Node {
             return .Branch(self)
         }
 
-        mutating func merge<TokenType>(other: BranchContent, graph: inout Graph<TokenType>) {
+        mutating func merge(other: BranchContent, graph: inout Graph) {
             switch (miss, other.miss) {
             case (nil, _):
                 // if branch's miss is empty, use other's
@@ -272,13 +247,15 @@ extension Node: CustomStringConvertible {
 
 // MARK: - Graph Input
 
-public struct GraphInput<T: Hashable> {
-    let token: T
+public struct GraphInput {
+    typealias TokenNameType = String
+
+    let token: TokenNameType
     let hir: HIR
     let callback: MatchCallbackType?
     let priority: UInt
 
-    init(token: T, hir: HIR, callback: MatchCallbackType? = nil, priority: UInt? = nil) {
+    init(token: String, hir: HIR, callback: MatchCallbackType? = nil, priority: UInt? = nil) {
         self.token = token
         self.hir = hir
         self.callback = callback
@@ -287,7 +264,7 @@ public struct GraphInput<T: Hashable> {
 }
 
 extension GraphInput: Hashable {
-    public static func == (lhs: GraphInput<T>, rhs: GraphInput<T>) -> Bool {
+    public static func == (lhs: GraphInput, rhs: GraphInput) -> Bool {
         return lhs.hir == rhs.hir && lhs.token == rhs.token
     }
 
@@ -298,7 +275,7 @@ extension GraphInput: Hashable {
 }
 
 extension GraphInput: Comparable {
-    public static func < (lhs: GraphInput<T>, rhs: GraphInput<T>) -> Bool {
+    public static func < (lhs: GraphInput, rhs: GraphInput) -> Bool {
         return lhs.priority < rhs.priority
     }
 }
@@ -361,7 +338,7 @@ extension OrderedSet {
         UInt(count)
     }
 
-    mutating func reserve<T>(_ input: GraphInput<T>) -> EndsId where Element == GraphInput<T> {
+    mutating func reserve(_ input: GraphInput) -> EndsId where Element == GraphInput {
         let id = nextInputId
         append(input)
         return id
@@ -382,14 +359,14 @@ public struct Merge: Hashable, Equatable {
 }
 
 /// Automata representation graph
-public struct Graph<T> where T: Hashable {
+public struct Graph {
     var nodes: [Node?] = [nil]
-    var inputs: OrderedSet<GraphInput<T>> = []
+    var inputs: OrderedSet<GraphInput> = []
     var hashMap: [UInt: NodeId] = [:]
     var pendingMerges: [PendingMerge] = []
     var merges: [Merge: NodeId] = [:]
     var roots: [NodeId] = []
-    var rootId: NodeId? = nil
+    var rootId: NodeId?
 }
 
 // MARK: - Graph Element Helpers
@@ -399,7 +376,7 @@ extension Graph {
         return nodes[Int(id)]
     }
 
-    func get(input id: EndsId) -> GraphInput<T> {
+    func get(input id: EndsId) -> GraphInput {
         return inputs[Int(id)]
     }
 
@@ -464,7 +441,7 @@ extension Graph {
 // MARK: - Handle Graph Input
 
 extension Graph {
-    mutating func push(input: GraphInput<T>) throws {
+    mutating func push(input: GraphInput) throws {
         if inputs.contains(input) {
             throw GraphError.DuplicatedInputs
         }

@@ -9,11 +9,6 @@ import _RegexParser
 @testable import KaleidoscopeMacros
 import XCTest
 
-enum Token: Hashable {
-    case first
-    case second
-}
-
 func branch(_ children: [Character: NodeId], _ miss: NodeId? = nil) -> Node {
     return .Branch(.init(branches: children, miss: miss))
 }
@@ -44,10 +39,10 @@ final class GraphTests: XCTestCase {
 
         for (regexContents, expectedNodes, root) in tests {
             try XCTContext.runActivity(named: "Test `\(regexContents) graph generation`") { _ in
-                var graph = Graph<Token>()
+                var graph = Graph()
                 for regexContent in regexContents {
                     let hir = try HIR(regex: regexContent)
-                    try graph.push(input: .init(token: .first, hir: hir))
+                    try graph.push(input: .init(token: "LEAF", hir: hir))
                 }
 
                 _ = try graph.makeRoot()
