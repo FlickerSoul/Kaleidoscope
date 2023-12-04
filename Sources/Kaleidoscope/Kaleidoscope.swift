@@ -1,6 +1,7 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 
+@_exported import KaleidoscopeLexer
 import KaleidoscopeMacros
 import SwiftSyntax
 

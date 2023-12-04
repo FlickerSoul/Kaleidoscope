@@ -33,13 +33,13 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                "KaleidoscopeLexer",
             ],
             swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
         ),
-
+        .target(name: "KaleidoscopeLexer", swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
         // Library that exposes a macro as part of its API, which is used in client programs.
         .target(name: "Kaleidoscope", dependencies: ["KaleidoscopeMacros"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
-
         // A client of the library, which is able to use the macro in its own code.
         .executableTarget(name: "KaleidoscopeClient", dependencies: ["Kaleidoscope"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
 
