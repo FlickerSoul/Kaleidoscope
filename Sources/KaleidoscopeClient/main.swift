@@ -1,5 +1,13 @@
 import Kaleidoscope
 
+@kaleidoscope
 enum Token {
-    #caseGen("def")
+    @regex("aa")
+    case AA
+
+    @regex("bb")
+    case B
 }
+
+let result = Token.lexer(source: "aabb")
+print(result)

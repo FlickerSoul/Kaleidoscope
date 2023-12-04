@@ -42,7 +42,7 @@ final class GraphTests: XCTestCase {
                 var graph = Graph()
                 for regexContent in regexContents {
                     let hir = try HIR(regex: regexContent)
-                    try graph.push(input: .init(token: "LEAF", hir: hir))
+                    try graph.push(input: .init(token: "LEAF", tokenType: .standalone, hir: hir))
                 }
 
                 _ = try graph.makeRoot()

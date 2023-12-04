@@ -9,4 +9,8 @@ import Foundation
 
 enum KaleidoscopeError: Error {
     case SyntaxError
+    case NotAnEnum
+    case MultipleMacroDecleration
+    case ParsingError
+    case ExpectingString
 }

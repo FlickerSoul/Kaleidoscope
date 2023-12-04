@@ -5,91 +5,130 @@
 //  Created by Larry Zeng on 12/4/23.
 //
 
-enum LexerError: Error {
+public enum LexerError: Error {
     case SourceBoundExceeded
     case EmptyToken
+    case DuplicatedToken
+    case NotMatch
 }
 
-protocol Lexer {
-    associatedtype Token: Lexer
+public protocol LexerProtocol {
+    associatedtype TokenType: LexerProtocol
     typealias Source = String
-    typealias TokenStream = [Token]
+    typealias TokenStream = [TokenType]
     typealias Slice = Substring
 
     static func lex(_ lexer: inout LexerMachine<Self>) throws
-    func lexer(source: Source) -> LexerMachine<Token>
+    static func lexer(source: Source) -> LexerMachine<Self>
 }
 
-struct LexerMachine<Token: Lexer> {
+public struct LexerMachine<Token: LexerProtocol> {
     let source: Token.Source
-    var token: Token?
+    var token: Result<Token, Error>?
     var tokenStart: Int
     var tokenEnd: Int
 
-    @inlinable
-    var boundary: Int {
+    public init(source: LexerProtocol.Source, token: Result<Token, Error>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
+        self.source = source
+        self.token = token
+        self.tokenStart = tokenStart
+        self.tokenEnd = tokenEnd
+    }
+
+    @inline(__always)
+    public var boundary: Int {
         return source.count
     }
 
-    @inlinable
-    var span: Range<Int> {
+    @inline(__always)
+    public var span: Range<Int> {
         return tokenStart ..< tokenEnd
     }
 
-    @inlinable
-    var slice: Token.Slice {
+    @inline(__always)
+    public var slice: Token.Slice {
         let start = source.startIndex
         let range = source.index(start, offsetBy: tokenStart) ..< source.index(start, offsetBy: tokenEnd)
         return source[range]
     }
 
-    @inlinable
-    var remainder: Token.Slice {
+    @inline(__always)
+    public var remainder: Token.Slice {
         let start = source.startIndex
         let range = source.index(start, offsetBy: tokenEnd) ..< source.index(start, offsetBy: boundary)
 
         return source[range]
     }
 
-    @inlinable
+    @inline(__always)
     public func branch() -> Self {
         return .init(source: source, token: nil, tokenStart: 0, tokenEnd: 0)
     }
 
-    @inlinable
-    public mutating func bump(by: Int) {
+    @inline(__always)
+    public mutating func bump(by: Int) throws {
         tokenEnd += by
-        assert(tokenEnd <= boundary, "Token Pointer Bump Exceed Source Boundary")
-    }
-
-    @inlinable
-    public mutating func bump() {
-        bump(by: 1)
-    }
-
-    mutating func take() throws -> Token {
-        guard let token = token else {
-            throw LexerError.EmptyToken
+        if tokenEnd > boundary {
+            throw LexerError.SourceBoundExceeded
         }
-
-        return token
     }
 
+    @inline(__always)
+    public mutating func bump() throws {
+        try bump(by: 1)
+    }
+
+    @inline(__always)
+    public mutating func reset() {
+        tokenStart = tokenEnd
+    }
+
+    @inline(__always)
+    mutating func take() throws -> Token {
+        switch token {
+        case .none:
+            throw LexerError.EmptyToken
+        case .some(let result):
+            switch result {
+            case .success(let token):
+                self.token = nil
+                return token
+            case .failure(let error):
+                throw error
+            }
+        }
+    }
+
+    @inline(__always)
     var spanned: SpannedLexerIter<Token> {
         return .init(lexer: self)
     }
 
+    @inline(__always)
     var sliced: SlicedLexerIter<Token> {
         return .init(lexer: self)
     }
 
+    @inline(__always)
     var spannedAndSliced: SpannedSlicedLexerIter<Token> {
         return .init(lexer: self)
     }
+
+    @inline(__always)
+    public mutating func setToken(_ token: Token) throws {
+        guard self.token == nil else {
+            throw LexerError.DuplicatedToken
+        }
+        self.token = .success(token)
+    }
+
+    @inline(__always)
+    public mutating func error() {
+        token = .failure(LexerError.NotMatch)
+    }
 }
 
-extension LexerMachine: IteratorProtocol {
-    @inlinable
+extension LexerMachine: Sequence, IteratorProtocol {
     public mutating func next() -> Result<Token, Error>? {
         tokenStart = tokenEnd
 
@@ -97,60 +136,76 @@ extension LexerMachine: IteratorProtocol {
             return nil
         }
 
-        return Result(catching: {
+        let result = Result(catching: {
             try Token.lex(&self)
             return try self.take()
         })
+
+        return result
     }
 }
 
-struct SpannedLexerIter<Token: Lexer>: IteratorProtocol {
+struct SpannedLexerIter<Token: LexerProtocol>: IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> Result<(Token, Range<Int>), Error>? {
+    public mutating func next() -> (Result<Token, Error>?, Range<Int>)? {
         lexer.tokenStart = lexer.tokenEnd
 
         if lexer.tokenEnd == lexer.boundary {
             return nil
         }
 
-        return Result(catching: {
-            try Token.lex(&lexer)
-            return try (lexer.take(), lexer.span)
-        })
+        return (lexer.next(), lexer.span)
     }
 }
 
-struct SlicedLexerIter<Token: Lexer>: IteratorProtocol {
+struct SlicedLexerIter<Token: LexerProtocol>: IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> Result<(Token, Substring), Error>? {
+    public mutating func next() -> (Result<Token, Error>?, Substring)? {
         lexer.tokenStart = lexer.tokenEnd
 
         if lexer.tokenEnd == lexer.boundary {
             return nil
         }
 
-        return Result(catching: {
-            try Token.lex(&lexer)
-            return try (lexer.take(), lexer.slice)
-        })
+        return (lexer.next(), lexer.slice)
     }
 }
 
-struct SpannedSlicedLexerIter<Token: Lexer>: IteratorProtocol {
+struct SpannedSlicedLexerIter<Token: LexerProtocol>: IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> Result<(Token, Range<Int>, Substring), Error>? {
+    public mutating func next() -> (Result<Token, Error>?, Range<Int>, Substring)? {
         lexer.tokenStart = lexer.tokenEnd
 
         if lexer.tokenEnd == lexer.boundary {
             return nil
         }
 
-        return Result(catching: {
-            try Token.lex(&lexer)
-            return try (lexer.take(), lexer.span, lexer.slice)
-        })
+        return (lexer.next(), lexer.span, lexer.slice)
+    }
+}
+
+public extension LexerMachine {
+    @inline(__always)
+    func peak() -> Character? {
+        return peak(at: tokenEnd)
+    }
+
+    @inline(__always)
+    func peak(at index: Int) -> Character? {
+        if index == boundary {
+            return nil
+        }
+
+        return source[source.index(source.startIndex, offsetBy: index)]
+    }
+
+    @inline(__always)
+    func peak(from start: Int, to end: Int) -> Substring {
+        let startIndex = source.startIndex
+        let range = source.index(startIndex, offsetBy: start) ..< source.index(startIndex, offsetBy: end)
+        return source[range]
     }
 }

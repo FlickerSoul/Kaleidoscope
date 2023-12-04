@@ -24,7 +24,7 @@ enum GraphError: Error {
 // MARK: - Grpah Node
 
 public typealias NodeId = UInt
-public typealias InputId = UInt
+public typealias InputId = Int
 public typealias EndsId = InputId
 
 protocol Copy {
@@ -251,14 +251,14 @@ public struct GraphInput {
     typealias TokenNameType = String
 
     let token: TokenNameType
+    let tokenType: TokenType
     let hir: HIR
-    let callback: MatchCallbackType?
     let priority: UInt
 
-    init(token: String, hir: HIR, callback: MatchCallbackType? = nil, priority: UInt? = nil) {
+    init(token: String, tokenType: TokenType, hir: HIR, priority: UInt? = nil) {
         self.token = token
+        self.tokenType = tokenType
         self.hir = hir
-        self.callback = callback
         self.priority = priority ?? hir.priority()
     }
 }
@@ -329,13 +329,13 @@ extension OrderedSet {
     /// equal to the length of the info list, or
     /// the index of next appended item
     var nextInputId: InputId {
-        UInt(count)
+        count
     }
 
     /// Get the next end id, which is always
     /// equal to ``nextInfoId``
     var nextEndId: EndsId {
-        UInt(count)
+        count
     }
 
     mutating func reserve(_ input: GraphInput) -> EndsId where Element == GraphInput {
@@ -441,7 +441,7 @@ extension Graph {
 // MARK: - Handle Graph Input
 
 extension Graph {
-    mutating func push(input: GraphInput) throws {
+    public mutating func push(input: GraphInput) throws {
         if inputs.contains(input) {
             throw GraphError.DuplicatedInputs
         }
@@ -633,7 +633,7 @@ public extension Graph {
         var marks = [Bool](repeating: false, count: nodes.count)
         marks[rootIndex] = true
 
-        var rootNode = get(node: rootId)
+        let rootNode = get(node: rootId)
 
         rootNode?.shake(marks: &marks, graph: &self)
 
