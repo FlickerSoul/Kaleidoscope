@@ -22,16 +22,16 @@ import SwiftSyntax
 public macro caseGen(_ value: String) = #externalMacro(module: "KaleidoscopeMacros", type: "CaseGenerator")
 
 @attached(peer)
-public macro token<T>(_ value: String, onMatch callback: ExactMatchCallbackType<T>? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
+public macro token<T>(_ value: String, onMatch callback: CaseCallbackType<T>? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro token(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
+public macro token(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro regex<T>(_ value: String, onMatch callback: ExactMatchCallbackType<T>? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
+public macro regex<T>(_ value: String, onMatch callback: CaseCallbackType<T>? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro regex(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseTokenType")
+public macro regex(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(extension, conformances: LexerProtocol, names: arbitrary)
 public macro kaleidoscope(skip chars: String? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "KaleidoscopeBuilder")

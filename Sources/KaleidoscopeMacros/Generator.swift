@@ -7,42 +7,6 @@
 
 import SwiftSyntax
 
-// MARK: - Callback Result Types
-
-public protocol GetResult {
-    func get<R>() throws -> R?
-}
-
-public enum CallbackResult<T> {
-    case skip
-    case match(T)
-}
-
-extension CallbackResult: GetResult {
-    public func get<R>() throws -> R? {
-        switch self {
-        case .skip: return nil
-        case .match(let res): return (res as! R)
-        }
-    }
-}
-
-public typealias MatchCallbackType = () -> GetResult
-public typealias ExactMatchCallbackType<T> = () -> CallbackResult<T>
-
-// MARK: - Callback Type
-
-public enum CallbackType {
-    case Named(String)
-    case Lambda(String)
-    case Skip
-}
-
-public enum TokenType {
-    case callback(CallbackType)
-    case standalone
-}
-
 // MARK: - Generator
 
 enum GeneratorError: Error {

@@ -17,7 +17,7 @@ enum GraphError: Error {
     case MergingLeaves
     case OverwriteNonReserved
     case EmptyRoot
-    case ShakingError
+    case ShakingError(String)
     case EmptyChildren
 }
 
@@ -41,7 +41,9 @@ public enum Node {
     /// the state that can lead to multiple states
     case Branch(Node.BranchContent)
 
-    func shake(marks: inout [Bool], graph: inout Graph) {
+    func shake(marks: inout [Bool], index: Int, graph: inout Graph) throws {
+        marks[index] = true
+
         switch self {
         case .Leaf:
             break
@@ -49,16 +51,22 @@ public enum Node {
             for branchId in branchContent.branches.values {
                 let nodeIndex = Int(branchId)
                 if !marks[nodeIndex] {
-                    marks[nodeIndex] = true
-                    graph.get(node: branchId)?.shake(marks: &marks, graph: &graph)
+                    guard let node = graph.get(node: branchId) else {
+                        throw GraphError.ShakingError("Node \(branchId) is nil")
+                    }
+
+                    try node.shake(marks: &marks, index: nodeIndex, graph: &graph)
                 }
             }
 
             if let missId = branchContent.miss {
                 let nodeIndex = Int(missId)
                 if !marks[nodeIndex] {
-                    marks[nodeIndex] = true
-                    graph.get(node: missId)?.shake(marks: &marks, graph: &graph)
+                    guard let node = graph.get(node: missId) else {
+                        throw GraphError.ShakingError("Node \(missId) is nil")
+                    }
+
+                    try node.shake(marks: &marks, index: nodeIndex, graph: &graph)
                 }
             }
         }
@@ -71,14 +79,12 @@ public enum Node {
         case .Leaf:
             newNodes[newIndex] = self
         case .Branch(let branchContent):
-            newNodes[newIndex] = Node.Branch(.init())
-
             var newBranches: [Character: NodeId] = [:]
 
             for (char, branchId) in branchContent.branches {
                 let oldChildIndex = Int(branchId)
                 guard let newChildIndex = indexMapping[oldChildIndex] else {
-                    throw GraphError.ShakingError
+                    throw GraphError.ShakingError("Cannot Find Shaked Index Of Node \(oldChildIndex)")
                 }
 
                 newBranches[char] = NodeId(newChildIndex)
@@ -92,7 +98,7 @@ public enum Node {
             if let missId = branchContent.miss {
                 let oldMissIndex = Int(missId)
                 guard let newMissIndex = indexMapping[oldMissIndex] else {
-                    throw GraphError.ShakingError
+                    throw GraphError.ShakingError("Cannot Find Shaked Index Of Node \(oldMissIndex)")
                 }
 
                 newMiss = NodeId(newMissIndex)
@@ -406,6 +412,12 @@ extension Graph {
         return id
     }
 
+    mutating func mergeAllPendings() throws {
+        for pendingMerge in pendingMerges.reversed() {
+            _ = try mergeKnown(pendingMerge.has, pendingMerge.waiting, pendingMerge.into)
+        }
+    }
+
     mutating func reserve() -> NodeId {
         return nodes.reserve()
     }
@@ -628,14 +640,15 @@ public extension Graph {
             throw GraphError.EmptyRoot
         }
 
+        try mergeAllPendings()
+
         let rootIndex = Int(rootId)
 
         var marks = [Bool](repeating: false, count: nodes.count)
-        marks[rootIndex] = true
 
         let rootNode = get(node: rootId)
 
-        rootNode?.shake(marks: &marks, graph: &self)
+        try rootNode?.shake(marks: &marks, index: rootIndex, graph: &self)
 
         var count = 0
         for (index, mark) in marks.enumerated() {
