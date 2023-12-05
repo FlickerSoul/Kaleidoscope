@@ -26,7 +26,7 @@ public indirect enum HIR: Hashable {
     case Alternation([HIR])
     case Loop(HIR)
     case Maybe(HIR)
-    case Literal(Character)
+    case Literal(Unicode.Scalar)
     case Class(HIR)
 }
 
@@ -41,6 +41,7 @@ public enum HIRParsingError: Error {
     case IncorrectCharRange
     case IncorrectChar
     case NotSupportedCharacterRangeKind
+    case InvalidEscapeCharactor
 }
 
 // MARK: - Regex Repetition Kinds
@@ -165,20 +166,22 @@ public extension HIR {
     }
 
     internal init(_ quote: AST.Quote) {
-        self = .Concat(quote.literal.map(HIR.Literal))
+        self = .Concat(quote.literal.unicodeScalars.map { .Literal($0) })
     }
 
     internal init(_ atom: AST.Atom) throws {
         switch atom.kind {
         case .char(let char):
-            self = .Literal(char)
+            self = .Concat(char.unicodeScalars.map { .Literal($0) })
         case .scalar(let scalar):
-            self = .Literal(Character(scalar.value))
+            self = .Literal(scalar.value)
         case .scalarSequence(let scalarSequence):
-            let scalarsView = scalarSequence.scalarValues.map { HIR.Literal(.init($0)) }
-            self = .Concat(scalarsView)
+            self = .Concat(scalarSequence.scalarValues.map { .Literal($0) })
         case .escaped(let escaped):
-            self = .Literal(escaped.character)
+            guard let scalar = escaped.scalarValue else {
+                throw HIRParsingError.InvalidEscapeCharactor
+            }
+            self = .Literal(scalar)
         case .dot:
             self = .Literal(".")
         case .caretAnchor:
@@ -199,19 +202,19 @@ public extension HIR {
             }
             self = try .Alternation(
                 (start ... end).map {
-                    guard let unicode = UnicodeScalar($0) else {
+                    guard let unicode = Unicode.Scalar($0) else {
                         throw HIRParsingError.IncorrectChar
                     }
-                    return .Literal(Character(unicode))
+                    return .Literal(unicode)
                 }
             )
         } else if case .scalar(let leftScalar) = lhs, case .scalar(let rightScalar) = rhs {
             self = try .Alternation(
                 (leftScalar.value.value ... rightScalar.value.value).map {
-                    guard let unicode = UnicodeScalar($0) else {
+                    guard let unicode = Unicode.Scalar($0) else {
                         throw HIRParsingError.IncorrectChar
                     }
-                    return .Literal(Character(unicode))
+                    return .Literal(unicode)
                 }
             )
         } else {

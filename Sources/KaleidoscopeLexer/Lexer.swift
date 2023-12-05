@@ -129,7 +129,12 @@ public struct LexerMachine<Token: LexerProtocol> {
 
     @inline(__always)
     public mutating func skip() throws {
-        reset()
+        if tokenStart == tokenEnd {
+            tokenEnd = tokenEnd + 1
+            tokenStart = tokenEnd
+        } else {
+            reset()
+        }
         try Token.lex(&self)
     }
 }

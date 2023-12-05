@@ -79,7 +79,7 @@ public enum Node {
         case .Leaf:
             newNodes[newIndex] = self
         case .Branch(let branchContent):
-            var newBranches: [Character: NodeId] = [:]
+            var newBranches: [Unicode.Scalar: NodeId] = [:]
 
             for (char, branchId) in branchContent.branches {
                 let oldChildIndex = Int(branchId)
@@ -120,10 +120,10 @@ extension Node: IntoNode {
 
 public extension Node {
     struct BranchContent: Hashable, Copy, IntoNode {
-        var branches: [Character: NodeId] = [:]
+        var branches: [Unicode.Scalar: NodeId] = [:]
         var miss: NodeId? = nil
 
-        init(branches: [Character: NodeId] = [:], miss: NodeId? = nil) {
+        init(branches: [Unicode.Scalar: NodeId] = [:], miss: NodeId? = nil) {
             self.branches = branches
             self.miss = miss
         }
@@ -533,9 +533,9 @@ extension Graph {
 
             return branchId
 
-        case .Literal(let str):
+        case .Literal(let unicode):
             // push a match into reserve or a new place
-            return try reserve(Node.BranchContent(branches: [str: succ], miss: miss), reserved)
+            return try reserve(Node.BranchContent(branches: [unicode: succ], miss: miss), reserved)
         case .Class(let classHIR):
             // push a class hir as usual
             return try push(classHIR, succ, miss, reserved)

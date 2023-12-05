@@ -17,11 +17,11 @@ func generateCharacters(_ start: Character, _ end: Character) throws -> [HIR] {
     guard let left = start.unicodeScalars.first?.value, let right = end.unicodeScalars.first?.value else {
         throw TestError.CannotGenerateCharacterSequence
     }
-    return (left ... right).compactMap { guard let val = UnicodeScalar($0) else { return nil }; return .Literal(Character(val)) }
+    return (left ... right).compactMap { guard let val = Unicode.Scalar($0) else { return nil }; return .Literal(val) }
 }
 
 func disemableString(_ string: String) -> HIR {
-    return .Concat(string.map { .Literal($0) })
+    return .Concat(string.unicodeScalars.map { .Literal($0) })
 }
 
 final class HIRTests: XCTestCase {
@@ -30,6 +30,9 @@ final class HIRTests: XCTestCase {
             (
                 "ab",
                 .success(disemableString("ab"))
+            ),
+            (
+                " \n\t", .success(disemableString(" \n\t"))
             ),
             (
                 "a*",

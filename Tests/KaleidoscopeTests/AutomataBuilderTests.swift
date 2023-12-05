@@ -9,7 +9,7 @@ import _RegexParser
 @testable import KaleidoscopeMacros
 import XCTest
 
-func branch(_ children: [Character: NodeId], _ miss: NodeId? = nil) -> Node {
+func branch(_ children: [Unicode.Scalar: NodeId], _ miss: NodeId? = nil) -> Node {
     return .Branch(.init(branches: children, miss: miss))
 }
 
