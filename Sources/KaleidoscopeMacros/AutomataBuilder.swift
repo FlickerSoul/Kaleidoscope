@@ -153,7 +153,7 @@ public extension Node {
             case (nil, _):
                 // if branch's miss is empty, use other's
                 miss = other.miss
-            case (.some(let lhs), .some(let rhs)):
+            case (.some(let lhs), .some(let rhs)) where lhs != rhs:
                 // if both have misses, merge two misses
                 miss = try! graph.merge(lhs, rhs)
             case _:
@@ -614,8 +614,7 @@ extension Graph {
 
         lhsContent.merge(other: rhsContent, graph: &self)
 
-        // TODO: why can't be insert?
-        let into = try reserve(lhsContent, into)
+        let into = try insert(lhsContent, into)
 
         return into
     }

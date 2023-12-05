@@ -27,12 +27,14 @@ public struct LexerMachine<Token: LexerProtocol> {
     var token: Result<Token, Error>?
     var tokenStart: Int
     var tokenEnd: Int
+    var failed: Bool
 
     public init(source: LexerProtocol.Source, token: Result<Token, Error>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
         self.source = source
         self.token = token
         self.tokenStart = tokenStart
         self.tokenEnd = tokenEnd
+        self.failed = false
     }
 
     @inline(__always)
@@ -84,9 +86,13 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    mutating func take() throws -> Token {
+    mutating func take() throws -> Token? {
         switch token {
         case .none:
+            if tokenEnd == tokenStart, tokenEnd >= boundary {
+                return nil
+            }
+
             throw LexerError.EmptyToken
         case .some(let result):
             switch result {
@@ -135,7 +141,10 @@ public struct LexerMachine<Token: LexerProtocol> {
         } else {
             reset()
         }
-        try Token.lex(&self)
+
+        if tokenEnd < boundary {
+            try Token.lex(&self)
+        }
     }
 }
 
@@ -143,58 +152,57 @@ extension LexerMachine: Sequence, IteratorProtocol {
     public mutating func next() -> Result<Token, Error>? {
         tokenStart = tokenEnd
 
-        if tokenEnd == boundary {
+        if tokenEnd == boundary || failed {
             return nil
         }
 
-        let result = Result(catching: {
+        do {
             try Token.lex(&self)
-            return try self.take()
-        })
-
-        return result
+            if let token = try take() {
+                return .success(token)
+            } else {
+                return nil
+            }
+        } catch {
+            failed = true
+            return .failure(error)
+        }
     }
 }
 
 public struct SpannedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> (Result<Token, Error>?, Range<Int>)? {
-        lexer.tokenStart = lexer.tokenEnd
-
-        if lexer.tokenEnd == lexer.boundary {
+    public mutating func next() -> (Result<Token, Error>, Range<Int>)? {
+        if let token = lexer.next() {
+            return (token, lexer.span)
+        } else {
             return nil
         }
-
-        return (lexer.next(), lexer.span)
     }
 }
 
 public struct SlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> (Result<Token, Error>?, Substring)? {
-        lexer.tokenStart = lexer.tokenEnd
-
-        if lexer.tokenEnd == lexer.boundary {
+    public mutating func next() -> (Result<Token, Error>, Substring)? {
+        if let token = lexer.next() {
+            return (token, lexer.slice)
+        } else {
             return nil
         }
-
-        return (lexer.next(), lexer.slice)
     }
 }
 
 public struct SpannedSlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
-    public mutating func next() -> (Result<Token, Error>?, Range<Int>, Substring)? {
-        lexer.tokenStart = lexer.tokenEnd
-
-        if lexer.tokenEnd == lexer.boundary {
+    public mutating func next() -> (Result<Token, Error>, Range<Int>, Substring)? {
+        if let token = lexer.next() {
+            return (token, lexer.span, lexer.slice)
+        } else {
             return nil
         }
-
-        return (lexer.next(), lexer.span, lexer.slice)
     }
 }
 
