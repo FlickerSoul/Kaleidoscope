@@ -166,17 +166,17 @@ public extension HIR {
     }
 
     internal init(_ quote: AST.Quote) {
-        self = .Concat(quote.literal.unicodeScalars.map { .Literal($0) })
+        self = quote.literal.unicodeScalars.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
     }
 
     internal init(_ atom: AST.Atom) throws {
         switch atom.kind {
         case .char(let char):
-            self = .Concat(char.unicodeScalars.map { .Literal($0) })
+            self = char.unicodeScalars.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
         case .scalar(let scalar):
             self = .Literal(scalar.value)
         case .scalarSequence(let scalarSequence):
-            self = .Concat(scalarSequence.scalarValues.map { .Literal($0) })
+            self = scalarSequence.scalarValues.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
         case .escaped(let escaped):
             guard let scalar = escaped.scalarValue else {
                 throw HIRParsingError.InvalidEscapeCharactor
