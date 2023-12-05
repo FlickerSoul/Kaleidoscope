@@ -12,10 +12,10 @@ import OrderedCollections
 
 enum GraphError: Error {
     case DuplicatedInputs
-    case EmptyMerging
+    case EmptyMerging(String)
     case IdenticalPriority
     case MergingLeaves
-    case OverwriteNonReserved
+    case OverwriteNonReserved(NodeId)
     case EmptyRoot
     case ShakingError(String)
     case EmptyChildren
@@ -166,6 +166,11 @@ public extension Node {
                 // if current branch has the same jump, merge
                 // otherwise, merge the jump to the current table
                 if let val = branches[hit] {
+                    if val == hitId {
+                        // if they are the same branch, skip, otherwise
+                        // will be an infinite loop
+                        continue
+                    }
                     branches[hit] = try! graph.merge(hitId, val)
                 } else {
                     branches[hit] = hitId
@@ -324,7 +329,7 @@ extension Array {
         if self[id] == nil {
             self[id] = node
         } else {
-            throw GraphError.OverwriteNonReserved
+            throw GraphError.OverwriteNonReserved(index)
         }
         return index
     }
@@ -386,7 +391,7 @@ extension Graph {
         return inputs[Int(id)]
     }
 
-    mutating func insertOrPush<I: IntoNode>(_ node: I, _ reserved: NodeId?) throws -> NodeId {
+    mutating func insertOrPush<I: IntoNode>(_ node: I, _ reserved: NodeId? = nil) throws -> NodeId {
         if let reserved = reserved {
             return try insert(node, reserved)
         } else {
@@ -405,17 +410,11 @@ extension Graph {
             }
         }
 
-        for readyMerge in ready {
+        for readyMerge in ready.reversed() {
             _ = try mergeKnown(readyMerge.has, readyMerge.waiting, readyMerge.into)
         }
 
         return id
-    }
-
-    mutating func mergeAllPendings() throws {
-        for pendingMerge in pendingMerges.reversed() {
-            _ = try mergeKnown(pendingMerge.has, pendingMerge.waiting, pendingMerge.into)
-        }
     }
 
     mutating func reserve() -> NodeId {
@@ -459,7 +458,7 @@ extension Graph {
         }
 
         let endId = inputs.reserve(input)
-        let leafId = reserve(
+        let leafId = try insertOrPush(
             Node.LeafContent(
                 endId: endId
             )
@@ -554,14 +553,14 @@ extension Graph {
             return merge
         }
 
-        let lhs = get(node: a)
-        let rhs = get(node: b)
+        let lhs: Node? = get(node: a)
+        let rhs: Node? = get(node: b)
 
         // work out pending merge and terminal conflicts
         switch (lhs, rhs) {
         case (nil, nil):
             // shouldn't happen
-            throw GraphError.EmptyMerging
+            throw GraphError.EmptyMerging("Something wrong with the internal engine. Please let the developer know.")
         case (nil, _):
             // if either is nil, push to pending merges
             let reservedId = reserve()
@@ -600,7 +599,7 @@ extension Graph {
     mutating func mergeKnown(_ a: NodeId, _ b: NodeId, _ into: NodeId) throws -> NodeId {
         // asserting lhs and rhs are not nil
         guard let lhs = get(node: a), let rhs = get(node: b) else {
-            throw GraphError.EmptyMerging
+            throw GraphError.EmptyMerging("This shouldn't happen.")
         }
 
         switch (lhs, rhs) {
@@ -614,13 +613,23 @@ extension Graph {
         let rhsContent = branch(from: rhs, b)
 
         lhsContent.merge(other: rhsContent, graph: &self)
+
+        // TODO: why can't be insert?
         let into = try reserve(lhsContent, into)
 
         return into
     }
 
+    mutating func mergeAllPendings() throws {
+        for pending in pendingMerges {
+            _ = try mergeKnown(pending.waiting, pending.has, pending.into)
+        }
+
+        pendingMerges = []
+    }
+
     mutating func makeRoot() throws -> NodeId {
-        var rootId = reserve(Node.BranchContent())
+        var rootId = try insertOrPush(Node.BranchContent())
 
         for root in roots {
             rootId = try merge(rootId, root)

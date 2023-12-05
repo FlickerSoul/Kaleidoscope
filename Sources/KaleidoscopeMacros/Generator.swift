@@ -76,8 +76,9 @@ struct Generator {
     func buildBranch(node: Node.BranchContent) -> String {
         var branches: [String] = []
         for (hit, nodeId) in node.branches {
+            let scalars = hit.unicodeScalars.map { $0.escaped(asASCII: true) }.joined()
             branches.append("""
-            case "\(hit)":
+            case "\(scalars)":
                 try lexer.bump()
                 try \(generateFuncIdent(nodeId: nodeId))(&lexer)
             """)
