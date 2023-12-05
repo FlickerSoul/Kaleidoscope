@@ -48,6 +48,7 @@ let package = Package(
             name: "KaleidoscopeTests",
             dependencies: [
                 "KaleidoscopeMacros",
+                "Kaleidoscope",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ],
             swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
