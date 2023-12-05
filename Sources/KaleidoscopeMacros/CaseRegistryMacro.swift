@@ -15,12 +15,12 @@ import SwiftSyntaxMacros
 enum CallbackType {
     case Named(String)
     case Lambda(String)
-    case Skip
 }
 
 enum TokenType {
     case callback(CallbackType)
     case standalone
+    case skip
 }
 
 public typealias CaseCallbackType<T: LexerProtocol> = (inout T) -> T where T.TokenType == T

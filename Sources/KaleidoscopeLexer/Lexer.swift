@@ -100,17 +100,17 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    var spanned: SpannedLexerIter<Token> {
+    public var spanned: SpannedLexerIter<Token> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    var sliced: SlicedLexerIter<Token> {
+    public var sliced: SlicedLexerIter<Token> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    var spannedAndSliced: SpannedSlicedLexerIter<Token> {
+    public var spannedAndSliced: SpannedSlicedLexerIter<Token> {
         return .init(lexer: self)
     }
 
@@ -125,6 +125,12 @@ public struct LexerMachine<Token: LexerProtocol> {
     @inline(__always)
     public mutating func error() {
         token = .failure(LexerError.NotMatch)
+    }
+
+    @inline(__always)
+    public mutating func skip() throws {
+        reset()
+        try Token.lex(&self)
     }
 }
 
@@ -145,7 +151,7 @@ extension LexerMachine: Sequence, IteratorProtocol {
     }
 }
 
-struct SpannedLexerIter<Token: LexerProtocol>: IteratorProtocol {
+public struct SpannedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
     public mutating func next() -> (Result<Token, Error>?, Range<Int>)? {
@@ -159,7 +165,7 @@ struct SpannedLexerIter<Token: LexerProtocol>: IteratorProtocol {
     }
 }
 
-struct SlicedLexerIter<Token: LexerProtocol>: IteratorProtocol {
+public struct SlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
     public mutating func next() -> (Result<Token, Error>?, Substring)? {
@@ -173,7 +179,7 @@ struct SlicedLexerIter<Token: LexerProtocol>: IteratorProtocol {
     }
 }
 
-struct SpannedSlicedLexerIter<Token: LexerProtocol>: IteratorProtocol {
+public struct SpannedSlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
     var lexer: LexerMachine<Token>
 
     public mutating func next() -> (Result<Token, Error>?, Range<Int>, Substring)? {

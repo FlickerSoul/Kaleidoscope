@@ -14,6 +14,7 @@ let KALEIDOSCOPE_PACKAGE_NAME: String = "Kaleidoscope"
 let KALEIDOSCOPE_MACRO_NAME: String = "kaleidoscope"
 let KALEIDOSCOPE_REGEX_NAME: String = "regex"
 let KALEIDOSCOPE_TOKEN_NAME: String = "token"
+let KALEIDOSCOPE_MACRO_SKIP_ATTR: String = "skip"
 
 public struct KaleidoscopeBuilder: ExtensionMacro {
     public static func expansion(of node: SwiftSyntax.AttributeSyntax, attachedTo declaration: some SwiftSyntax.DeclGroupSyntax, providingExtensionsOf type: some SwiftSyntax.TypeSyntaxProtocol, conformingTo protocols: [SwiftSyntax.TypeSyntax], in context: some SwiftSyntaxMacros.MacroExpansionContext) throws -> [SwiftSyntax.ExtensionDeclSyntax] {
@@ -24,8 +25,11 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
         // get enum identity
         let enumIdent = enumDecl.name.text
         
+        // generate graph
+        var graph = Graph()
+        
         // get the macro lists
-        if enumDecl.attributes.filter({ attr in
+        let kaleidoscopeMacroDelcList = enumDecl.attributes.filter { attr in
             let attrName: TypeSyntax? = attr.as(AttributeSyntax.self)?.attributeName
             let ident = attrName?.as(IdentifierTypeSyntax.self)?.name.text
             let member = attrName?.as(MemberTypeSyntax.self)
@@ -35,14 +39,27 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
             // check how many of the attributes are like
             // @kaleidoscope() or Kaleidoscope.kaleidoscope()
             return ident == KALEIDOSCOPE_MACRO_NAME || (memberIdent == KALEIDOSCOPE_MACRO_NAME && memberType == KALEIDOSCOPE_PACKAGE_NAME)
-        }).count > 1 {
-            // if there are more than 1,
-            // throw error to indicate duplication
+        }
+        
+        // if there are more than 1,
+        // throw error to indicate duplication
+        if kaleidoscopeMacroDelcList.count > 1 {
             throw KaleidoscopeError.MultipleMacroDecleration
         }
         
-        // generate graph
-        var graph = Graph()
+        if let kaleidoscopeAttrs = kaleidoscopeMacroDelcList[0].as(AttributeSyntax.self)?.arguments?.as(LabeledExprListSyntax.self) {
+            for kaleidoscopeAttr in kaleidoscopeAttrs {
+                switch kaleidoscopeAttr.label?.text {
+                case KALEIDOSCOPE_MACRO_SKIP_ATTR:
+                    guard let skipString = kaleidoscopeAttr.expression.as(StringLiteralExprSyntax.self)?.segments.description else {
+                        throw KaleidoscopeError.ExpectingString
+                    }
+                    try graph.push(input: .init(token: "SKIP_REGEX_TOKEN", tokenType: .skip, hir: HIR(regex: skipString)))
+                case _:
+                    break
+                }
+            }
+        }
         
         // get the member case xxx blocks
         for member in enumDecl.memberBlock.members {
@@ -103,7 +120,7 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
                 try \(raw: generator.generateFuncIdent(nodeId: rootId))(&lexer)
             }
         
-            public static func lexer(source: Source) -> LexerMachine<Self> {
+            public static func lexer(source: Self.Source) -> LexerMachine<Self> {
                 return LexerMachine(source: source)
             }
         }

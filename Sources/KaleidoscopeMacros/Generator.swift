@@ -49,17 +49,16 @@ struct Generator {
     func buildLeaf(node: Node.LeafContent) -> String {
         let end = graph.inputs[node.endId]
         switch end.tokenType {
+        case .skip:
+            return """
+            try lexer.skip()
+            """
         case .standalone:
             return """
             try lexer.setToken(\(enumIdent).\(end.token))
             """
         case .callback(let callbackDetail):
             switch callbackDetail {
-            case .Skip:
-                return """
-                lexer.reset()
-                \(enumIdent).lex(&lexer)
-                """
             case .Named(let ident):
                 return """
                 try lexer.setToken(\(enumIdent).\(end.token)(\(ident)(&lexer)))
