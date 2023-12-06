@@ -13,20 +13,21 @@ enum TestError: Error {
     case CannotGenerateCharacterSequence
 }
 
-func generateCharacters(_ start: Character, _ end: Character) throws -> [HIR] {
-    guard let left = start.unicodeScalars.first?.value, let right = end.unicodeScalars.first?.value else {
-        throw TestError.CannotGenerateCharacterSequence
-    }
-    return (left ... right).compactMap { guard let val = Unicode.Scalar($0) else { return nil }; return .Literal(val) }
+func characters(_ start: Character, _ end: Character, inverted: Bool = false) -> HIR.Scalars {
+    return [start.scalarByte ... end.scalarByte]
 }
 
 func disemableString(_ string: String) -> HIR {
-    return .Concat(string.unicodeScalars.map { .Literal($0) })
+    return .Concat(string.unicodeScalars.map { .Literal($0.scalar) })
+}
+
+func literal(_ char: Character) -> HIR {
+    return .Literal(char.scalar)
 }
 
 final class HIRTests: XCTestCase {
     func testHIRRegexGeneration() throws {
-        let testCases: [(String, Result<HIR, HIRParsingError>)] = try [
+        let testCases: [(String, Result<HIR, HIRParsingError>)] = [
             (
                 "ab",
                 .success(disemableString("ab"))
@@ -40,19 +41,19 @@ final class HIRTests: XCTestCase {
             ),
             (
                 "a|b",
-                .success(.Alternation([.Literal("a"), .Literal("b")]))
+                .success(.Alternation([literal("a"), literal("b")]))
             ),
             (
                 "[a-z]",
-                .success(.Class(.Alternation(generateCharacters("a", "z"))))
+                .success(.Class(characters("a", "z")))
             ),
             (
                 "[a-c]+?",
-                .success(.Concat([.Class(.Alternation(generateCharacters("a", "c"))), .Loop(.Class(.Alternation(generateCharacters("a", "c"))))]))
+                .success(.Concat([.Class(characters("a", "c")), .Loop(.Class(characters("a", "c")))]))
             ),
             (
                 "[a-cx-z]+?",
-                .success(.Concat([.Class(.Alternation([.Alternation(generateCharacters("a", "c")), .Alternation(generateCharacters("x", "z"))])), .Loop(.Class(.Alternation([.Alternation(generateCharacters("a", "c")), .Alternation(generateCharacters("x", "z"))])))]))
+                .success(.Concat([.Class(characters("a", "c") + characters("x", "z")), .Loop(.Class(characters("a", "c") + characters("x", "z")))]))
             ),
 
             (

@@ -9,8 +9,16 @@ import _RegexParser
 @testable import KaleidoscopeMacros
 import XCTest
 
-func branch(_ children: [Unicode.Scalar: NodeId], _ miss: NodeId? = nil) -> Node {
+func branch(_ children: [Character: NodeId], _ miss: NodeId? = nil, inverted: Bool = false) -> Node {
+    return .Branch(.init(branches: Dictionary(uniqueKeysWithValues: children.map { ($0.scalar, $1) }), miss: miss))
+}
+
+func branch(_ children: [Node.BranchHit: NodeId], _ miss: NodeId? = nil, inverted: Bool = false) -> Node {
     return .Branch(.init(branches: children, miss: miss))
+}
+
+func range(_ lhs: Character, _ rhs: Character) -> Node.BranchHit {
+    return lhs.scalarByte...rhs.scalarByte
 }
 
 func leaf(_ end: EndsId) -> Node {
@@ -32,8 +40,18 @@ final class GraphTests: XCTestCase {
             ),
             (
                 regexs: ["ab", "[a-b]+?"],
-                nodes: [branch(["b": 3, "a": 3], 5), branch(["a": 3, "b": 0], 4), branch(["a": 1, "b": 3]), branch(["a": 3, "b": 3], 4), leaf(1), leaf(0)],
+                nodes: [branch([range("a", "b"): 3], 5), branch(["a": 3, "b": 0], 4), branch(["a": 1, "b": 3]), branch([range("a", "b"): 3], 4), leaf(1), leaf(0)],
                 root: 2
+            ),
+            (
+                regexs: ["ab", "[^a]"],
+                nodes: [branch([range("a", "a"): 2, range("b", Character(Unicode.Scalar(HIR.ScalarByte.max)!)): 1, range(Character(Unicode.Scalar(0)), "`"): 1]), leaf(1), branch(["b": 3]), leaf(0)],
+                root: 0
+            ),
+            (
+                regexs: ["ab", "[^bc]+?"],
+                nodes: [branch([0...97: 2, 98...98: 4, 100...65535: 2], 3), branch([97...97: 0, 100...65535: 2, 0...96: 2]), branch([0...97: 2, 100...65535: 2], 3), leaf(1), leaf(0)],
+                root: 1
             )
         ]
 
@@ -48,8 +66,8 @@ final class GraphTests: XCTestCase {
                 _ = try graph.makeRoot()
                 _ = try graph.shake()
 
-                XCTAssertEqual(graph.nodes, expectedNodes)
-                XCTAssertEqual(graph.rootId, .some(root))
+                XCTAssertEqual(graph.nodes, expectedNodes, "\(regexContents) graph comp failed")
+                XCTAssertEqual(graph.rootId, .some(root), "\(regexContents) graph root comp failed")
             }
         }
     }
