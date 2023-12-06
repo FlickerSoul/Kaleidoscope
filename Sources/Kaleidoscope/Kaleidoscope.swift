@@ -18,8 +18,6 @@ import SwiftSyntax
 ///         case def
 ///     }
 ///
-@freestanding(declaration, names: arbitrary)
-public macro caseGen(_ value: String) = #externalMacro(module: "KaleidoscopeMacros", type: "CaseGenerator")
 
 @attached(peer)
 public macro token<T>(_ value: String, onMatch callback: CaseCallbackType<T>? = nil, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
