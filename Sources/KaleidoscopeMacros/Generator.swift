@@ -74,7 +74,7 @@ struct Generator {
 
     func buildBranch(node: Node.BranchContent) -> String {
         var branches: [String] = []
-        var mergeCaes: [NodeId: [Unicode.Scalar]] = [:]
+        var mergeCaes: [NodeId: [Node.BranchHit]] = [:]
         for (hit, nodeId) in node.branches {
             if mergeCaes[nodeId] == nil {
                 mergeCaes[nodeId] = []
@@ -84,7 +84,9 @@ struct Generator {
         }
 
         for (nodeId, cases) in mergeCaes {
-            let caseString = cases.map { #"""# + "\($0.escaped(asASCII: true))" + #"""# }.joined(separator: ", ")
+            let caseString = cases.map { branchCase in
+                try! branchCase.toCode()
+            }.joined(separator: ", ")
             branches.append("""
             case \(caseString):
                 try lexer.bump()
@@ -106,7 +108,11 @@ struct Generator {
         }
 
         return """
-        switch lexer.peak() {
+        guard let scalar = lexer.peak() else {
+            return
+        }
+
+        switch scalar {
             \(branches.joined(separator: "\n"))
             \(miss)
         }

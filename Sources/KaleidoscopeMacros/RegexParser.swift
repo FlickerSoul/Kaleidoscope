@@ -21,13 +21,41 @@ import Foundation
 /// - SeeAlso
 /// [AST Node API](https://swiftinit.org/docs/swift/_regexparser/ast/node)
 public indirect enum HIR: Hashable {
+    public typealias ScalarByte = UInt16
+    public typealias ScalarBytes = [ScalarByte]
+
+    public typealias Scalar = ClosedRange<ScalarByte>
+    public typealias Scalars = [Scalar]
+
+    static let SCALAR_RANGE = ScalarByte.min ... ScalarByte.max
+
     case Empty
     case Concat([HIR])
     case Alternation([HIR])
     case Loop(HIR)
     case Maybe(HIR)
-    case Literal(Unicode.Scalar)
-    case Class(HIR)
+    case Literal(Scalar)
+    case Class([Scalar])
+}
+
+extension Unicode.Scalar {
+    var scalarByte: HIR.ScalarByte {
+        return HIR.ScalarBytes(self.utf16).first!
+    }
+
+    var scalar: HIR.Scalar {
+        return self.scalarByte ... self.scalarByte
+    }
+}
+
+extension Character {
+    var scalarByte: HIR.ScalarByte {
+        return HIR.ScalarBytes(self.utf16).first!
+    }
+
+    var scalar: HIR.Scalar {
+        return self.scalarByte ... self.scalarByte
+    }
 }
 
 public enum HIRParsingError: Error {
@@ -42,6 +70,8 @@ public enum HIRParsingError: Error {
     case IncorrectChar
     case NotSupportedCharacterRangeKind
     case InvalidEscapeCharactor
+    case QuoteInCharacterClass
+    case WiderUnicodeThanSupported
 }
 
 // MARK: - Regex Repetition Kinds
@@ -157,7 +187,7 @@ public extension HIR {
         case .atom(let atom):
             self = try HIR(atom)
         case .customCharacterClass(let charClass):
-            self = try HIR.processCharacterClass(charClass)
+            self = try .Class(HIR.processCharacterClass(charClass))
         case .empty:
             self = .Empty
         case _:
@@ -166,79 +196,133 @@ public extension HIR {
     }
 
     internal init(_ quote: AST.Quote) {
-        self = quote.literal.unicodeScalars.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
+        self = quote.literal.map { .Literal($0.scalar) }.wrapOrExtract(wrapper: HIR.Concat)
     }
 
     internal init(_ atom: AST.Atom) throws {
         switch atom.kind {
-        case .char(let char):
-            self = char.unicodeScalars.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
+        case .char(let char), .keyboardMeta(let char), .keyboardControl(let char), .keyboardMetaControl(let char):
+            self = .Literal(char.scalar)
         case .scalar(let scalar):
-            self = .Literal(scalar.value)
+            self = .Literal(scalar.value.scalar)
         case .scalarSequence(let scalarSequence):
-            self = scalarSequence.scalarValues.map { .Literal($0) }.wrapOrExtract(wrapper: HIR.Concat)
+            self = scalarSequence.scalarValues.map { .Literal($0.scalar) }.wrapOrExtract(wrapper: HIR.Concat)
         case .escaped(let escaped):
             guard let scalar = escaped.scalarValue else {
                 throw HIRParsingError.InvalidEscapeCharactor
             }
-            self = .Literal(scalar)
+            self = .Literal(scalar.scalar)
         case .dot:
-            self = .Literal(".")
+            self = .Literal(("." as Character).scalar)
         case .caretAnchor:
-            self = .Literal("^")
+            self = .Literal(("^" as Character).scalar)
         case .dollarAnchor:
-            self = .Literal("$")
+            self = .Literal(("$" as Character).scalar)
         case _:
             throw HIRParsingError.NotSupportedAtomKind
         }
     }
 
-    internal init(_ range: AST.CustomCharacterClass.Range) throws {
+    internal static func parseRange(_ range: AST.CustomCharacterClass.Range) throws -> Scalars {
         let lhs = range.lhs.kind
         let rhs = range.rhs.kind
         if case .char(let leftChar) = lhs, case .char(let rightChar) = rhs {
-            guard let start = leftChar.unicodeScalars.first?.value, let end = rightChar.unicodeScalars.first?.value else {
+            guard let start = leftChar.utf8.first, let end = rightChar.utf8.last else {
                 throw HIRParsingError.IncorrectCharRange
             }
-            self = try .Alternation(
-                (start ... end).map {
-                    guard let unicode = Unicode.Scalar($0) else {
-                        throw HIRParsingError.IncorrectChar
-                    }
-                    return .Literal(unicode)
-                }
-            )
+            return [ScalarByte(start) ... ScalarByte(end)]
         } else if case .scalar(let leftScalar) = lhs, case .scalar(let rightScalar) = rhs {
-            self = try .Alternation(
-                (leftScalar.value.value ... rightScalar.value.value).map {
-                    guard let unicode = Unicode.Scalar($0) else {
-                        throw HIRParsingError.IncorrectChar
-                    }
-                    return .Literal(unicode)
-                }
-            )
+            guard let start = leftScalar.value.utf8.first, let end = rightScalar.value.utf8.last else {
+                throw HIRParsingError.IncorrectCharRange
+            }
+            return [ScalarByte(start) ... ScalarByte(end)]
         } else {
             throw HIRParsingError.NotSupportedCharacterRangeKind
         }
     }
 
-    internal static func processCharacterClass(_ charClass: AST.CustomCharacterClass) throws -> HIR {
-        let members = try charClass.members.map { member in
+    internal static func processCharacterClass(_ charClass: AST.CustomCharacterClass) throws -> Scalars {
+        let ranges: [Scalars] = try charClass.members.map { member in
             switch member {
             case .custom(let childMember):
-                return try self.processCharacterClass(childMember)
+                return try self.processCharacterClass(childMember).compactMap { $0 }
             case .range(let range):
-                return try HIR(range)
+                return try HIR.parseRange(range)
             case .atom(let atom):
-                return try HIR(atom)
-            case .quote(let quote):
-                return HIR(quote)
+                switch try HIR(atom) {
+                case .Literal(let scalar):
+                    return [scalar]
+                case _:
+                    throw HIRParsingError.NotSupportedAtomKind
+                }
+            case .quote:
+                throw HIRParsingError.QuoteInCharacterClass
             case _:
                 throw HIRParsingError.NotSupportedCharacterClass
             }
         }
 
-        return .Class(members.wrapOrExtract(wrapper: HIR.Alternation))
+        // sort out and make distinct ranges
+
+        var flattened: Scalars = []
+
+        for currRange in ranges.flatMap({ $0 }).sorted() {
+            if flattened.count == 0 {
+                flattened.append(currRange)
+            } else {
+                let prevResult = flattened[flattened.count - 1]
+                if currRange.lowerBound <= prevResult.upperBound {
+                    if currRange.upperBound <= prevResult.upperBound {
+                        // perfectly contained in prev range,
+                        continue
+                    } else {
+                        // has intersection
+                        // ----
+                        //  -----
+                        flattened[flattened.count - 1] = prevResult.lowerBound ... currRange.upperBound
+                    }
+                } else {
+                    // does not have intersection
+                    // ---
+                    //     ----
+                    flattened.append(currRange)
+                }
+            }
+        }
+
+        // do invert
+        if charClass.isInverted {
+            var results: Scalars = []
+            var remaining: Scalar? = Self.SCALAR_RANGE
+            print(flattened)
+
+            for scalar in flattened {
+                guard let remainingUnwrapped = remaining else {
+                    throw HIRParsingError.WiderUnicodeThanSupported
+                }
+
+                if remainingUnwrapped.lowerBound < scalar.lowerBound {
+                    let left = remainingUnwrapped.lowerBound ... (scalar.lowerBound - 1)
+                    results.append(left)
+                } else if scalar.upperBound > remainingUnwrapped.upperBound {
+                    throw HIRParsingError.WiderUnicodeThanSupported
+                }
+
+                if scalar.upperBound < remainingUnwrapped.upperBound {
+                    remaining = scalar.upperBound + 1 ... remainingUnwrapped.upperBound
+                } else {
+                    remaining = nil
+                }
+            }
+
+            if let remaining = remaining {
+                results.append(remaining)
+            }
+
+            flattened = results
+        }
+
+        return flattened
     }
 
     internal static func processRange(child: HIR, kind: RepetitionRange) -> HIR {
