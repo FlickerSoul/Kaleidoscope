@@ -23,13 +23,38 @@ public protocol LexerProtocol {
 }
 
 public struct LexerMachine<Token: LexerProtocol> {
+    public enum TokenResult: Equatable {
+        case result(Token)
+        case skipped
+
+        public static func == (lhs: LexerMachine<Token>.TokenResult, rhs: LexerMachine<Token>.TokenResult) -> Bool {
+            switch (lhs, rhs) {
+            case (.skipped, skipped):
+                return true
+            case _:
+                return false
+            }
+        }
+
+        public static func == (lhs: LexerMachine<Token>.TokenResult, rhs: LexerMachine<Token>.TokenResult) -> Bool where Token: Equatable {
+            switch (lhs, rhs) {
+            case (.skipped, .skipped):
+                return true
+            case (.result(let lhs), .result(let rhs)):
+                return lhs == rhs
+            case _:
+                return false
+            }
+        }
+    }
+
     let source: Token.Source
-    var token: Result<Token, Error>?
+    var token: TokenResult?
     var tokenStart: Int
     var tokenEnd: Int
     var failed: Bool
 
-    public init(source: LexerProtocol.Source, token: Result<Token, Error>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
+    public init(source: LexerProtocol.Source, token: TokenResult? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
         self.source = source
         self.token = token
         self.tokenStart = tokenStart
@@ -86,22 +111,13 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    mutating func take() throws -> Token? {
+    mutating func take() throws -> TokenResult {
         switch token {
         case .none:
-            if tokenEnd == tokenStart, tokenEnd >= boundary {
-                return nil
-            }
-
             throw LexerError.EmptyToken
         case .some(let result):
-            switch result {
-            case .success(let token):
-                self.token = nil
-                return token
-            case .failure(let error):
-                throw error
-            }
+            token = nil
+            return result
         }
     }
 
@@ -122,15 +138,15 @@ public struct LexerMachine<Token: LexerProtocol> {
 
     @inline(__always)
     public mutating func setToken(_ token: Token) throws {
-        guard self.token == nil else {
+        guard self.token == nil || self.token == .skipped else {
             throw LexerError.DuplicatedToken
         }
-        self.token = .success(token)
+        self.token = .result(token)
     }
 
     @inline(__always)
-    public mutating func error() {
-        token = .failure(LexerError.NotMatch)
+    public mutating func error() throws {
+        throw LexerError.NotMatch
     }
 
     @inline(__always)
@@ -141,6 +157,8 @@ public struct LexerMachine<Token: LexerProtocol> {
         } else {
             reset()
         }
+
+        token = .skipped
 
         if tokenEnd < boundary {
             try Token.lex(&self)
@@ -158,9 +176,10 @@ extension LexerMachine: Sequence, IteratorProtocol {
 
         do {
             try Token.lex(&self)
-            if let token = try take() {
+            switch try take() {
+            case .result(let token):
                 return .success(token)
-            } else {
+            case .skipped:
                 return nil
             }
         } catch {

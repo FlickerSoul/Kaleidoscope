@@ -97,23 +97,24 @@ struct Generator {
         let miss: String
         if let missId = node.miss {
             miss = """
-            case _:
                 try \(generateFuncIdent(nodeId: missId))(&lexer)
             """
         } else {
             miss = """
-            case _:
-                lexer.error()
+                try lexer.error()
             """
         }
 
         return """
         guard let scalar = lexer.peak() else {
+            \(miss)
             return
         }
 
         switch scalar {
             \(branches.joined(separator: "\n"))
+
+            case _:
             \(miss)
         }
         """
