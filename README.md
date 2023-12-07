@@ -47,6 +47,10 @@ The project is provides three macros: `@kaleidoscope`, `regex`, and `token`, and
 
 Internally, all regex expressions and token strings are converted into a single finite automata. The finite automata consumes one character from the input at a time, until it reaches an token match or an error. This machanism is simple but works slowly. Future improvements can be established on this issue. 
 
+## Note 
+
+This package uses an internal Swift package [`_RegexParser`](https://github.com/apple/swift-experimental-string-processing) included in the experimental string processing lib. Please check out the github packe for compatibility. Due to its being experimental, this library can break in the future. 
+
 ## Furture Improvements
 
 - [ ] faster tokenization optomization 
