@@ -294,7 +294,6 @@ public extension HIR {
         if charClass.isInverted {
             var results: Scalars = []
             var remaining: Scalar? = Self.SCALAR_RANGE
-            print(flattened)
 
             for scalar in flattened {
                 guard let remainingUnwrapped = remaining else {
