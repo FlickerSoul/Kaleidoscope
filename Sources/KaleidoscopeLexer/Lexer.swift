@@ -164,6 +164,14 @@ public struct LexerMachine<Token: LexerProtocol> {
             try Token.lex(&self)
         }
     }
+
+    public func toArray() -> [Result<Token, Error>] {
+        return Array(self)
+    }
+
+    public func toUnwrappedArray() -> [Token] {
+        return Array(self).map { try! $0.get() }
+    }
 }
 
 extension LexerMachine: Sequence, IteratorProtocol {
