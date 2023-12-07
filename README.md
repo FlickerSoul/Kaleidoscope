@@ -40,3 +40,15 @@ Very
 Identifier("fast")
 Tokenizer
 ```
+
+## Idea
+
+The project is provides three macros: `@kaleidoscope`, `regex`, and `token`, and they work together to generate conformance to `LexerProtocol` for the decorated  enums. `regex` takes in a regex expression for matching and `token` takes a string for excat matching. In addition, they can take a `onMatch` callback and a `priority` integer. The callback has access to token string slice and can futher transform it to whatever type required by the enum case. The priority are calculated by from the expression by default. However, if two exprssions have the same weight, manual specification is required to resolve the conflict. 
+
+Internally, all regex expressions and token strings are converted into a single finite automata. The finite automata consumes one character from the input at a time, until it reaches an token match or an error. This machanism is simple but works slowly. Future improvements can be established on this issue. 
+
+## Furture Improvements
+
+- [ ] faster tokenization optomization 
+- [ ] cleaner code generation 
+- [ ] cleaner interface
