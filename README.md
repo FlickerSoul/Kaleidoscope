@@ -20,7 +20,7 @@ enum Tokens {
     @token("tokenizer")
     case Tokenizer
 
-    // you could put lambda directly here but the type checking doesn't seem to work very well right now?
+    // you could feed a closure directly to `onMatch` but swift doesn't like it for some reason...?
     @regex("[a-zA-Z_][a-zA-Z1-9$_]*?", onMatch: lambda) 
     case Identifier(Substring)
 }
