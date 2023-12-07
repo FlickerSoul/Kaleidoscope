@@ -20,16 +20,16 @@ import SwiftSyntax
 ///
 
 @attached(peer)
-public macro token<T, R>(_ value: String, weight: UInt? = nil, onMatch callback: CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro token<T, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro token(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro token(_ value: String, priority: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro regex<T, R>(_ value: String, weight: UInt? = nil, onMatch callback: CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro regex<T, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(peer)
-public macro regex(_ value: String, weight: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro regex(_ value: String, priority: UInt? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 @attached(extension, conformances: LexerProtocol, names: arbitrary)
 public macro kaleidoscope(skip chars: String? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "KaleidoscopeBuilder")

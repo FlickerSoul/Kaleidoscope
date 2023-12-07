@@ -11,10 +11,15 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 let KALEIDOSCOPE_PACKAGE_NAME: String = "Kaleidoscope"
+
 let KALEIDOSCOPE_MACRO_NAME: String = "kaleidoscope"
+let KALEIDOSCOPE_MACRO_SKIP_ATTR: String = "skip"
+
 let KALEIDOSCOPE_REGEX_NAME: String = "regex"
 let KALEIDOSCOPE_TOKEN_NAME: String = "token"
-let KALEIDOSCOPE_MACRO_SKIP_ATTR: String = "skip"
+
+let KALEIDOSCOPE_PRIORITY_OPTION: String = "priority"
+let KALEIDOSCOPE_ON_MATCH_OPTION: String = "onMatch"
 
 public struct KaleidoscopeBuilder: ExtensionMacro {
     public static func expansion(of node: SwiftSyntax.AttributeSyntax, attachedTo declaration: some SwiftSyntax.DeclGroupSyntax, providingExtensionsOf type: some SwiftSyntax.TypeSyntaxProtocol, conformingTo protocols: [SwiftSyntax.TypeSyntax], in context: some SwiftSyntaxMacros.MacroExpansionContext) throws -> [SwiftSyntax.ExtensionDeclSyntax] {
@@ -99,8 +104,8 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
             }
             
             for token in caseTypes {
-                for (hir, tokenType) in attrMatches {
-                    try graph.push(input: .init(token: token.name, tokenType: tokenType, hir: hir))
+                for (hir, tokenType, priority) in attrMatches {
+                    try graph.push(input: .init(token: token.name, tokenType: tokenType, hir: hir, priority: priority))
                 }
             }
         }
@@ -132,7 +137,7 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
     }
 }
 
-typealias AttrMatchInfo = (hir: HIR, type: TokenType)
+typealias AttrMatchInfo = (hir: HIR, type: TokenType, priority: UInt?)
 
 extension SyntaxCollection {
     subscript(index: Int) -> Element {
@@ -166,15 +171,34 @@ func parse(_ attr: AttributeSyntax, isToken: Bool) throws -> AttrMatchInfo {
     }
     
     var matchCallback: TokenType = .standalone
-    if arguments.count > 1 {
-        if let lambda = arguments[1].expression.as(ClosureExprSyntax.self) {
+    var priority: UInt? = nil
+    
+    if let foundExpr = findExpression(KALEIDOSCOPE_ON_MATCH_OPTION, in: arguments)?.expression {
+        if let lambda = foundExpr.as(ClosureExprSyntax.self) {
             // TODO: this might be wrong
             matchCallback = .callback(.Lambda(lambda.description))
         } else {
             // TODO: this might be wrong
-            matchCallback = .callback(.Named(arguments[1].expression.description))
+            matchCallback = .callback(.Named(foundExpr.description))
         }
     }
     
-    return (hir, matchCallback)
+    if let foundExpr = findExpression(KALEIDOSCOPE_PRIORITY_OPTION, in: arguments)?.expression {
+        guard let num = foundExpr.as(IntegerLiteralExprSyntax.self) else {
+            throw KaleidoscopeError.ExpectingIntegerLiteral
+        }
+        priority = UInt(num.literal.text)
+    }
+    
+    return (hir, matchCallback, priority)
+}
+
+func findExpression(_ name: String, in exprList: LabeledExprListSyntax) -> LabeledExprSyntax? {
+    for labeledExpr in exprList {
+        if labeledExpr.label?.text == name {
+            return labeledExpr
+        }
+    }
+    
+    return nil
 }

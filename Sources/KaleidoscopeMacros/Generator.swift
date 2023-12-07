@@ -65,7 +65,7 @@ struct Generator {
                 """
             case .Lambda(let lambda):
                 return """
-                try lexer.setToken(\(enumIdent),\(end.token))(\(lambda)(&lexer))
+                try lexer.setToken(\(enumIdent).\(end.token)(\(lambda)(&lexer)))
                 """
                 // TODO: the lambda to string might not work?
             }

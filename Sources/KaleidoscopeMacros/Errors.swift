@@ -13,4 +13,5 @@ enum KaleidoscopeError: Error {
     case MultipleMacroDecleration
     case ParsingError
     case ExpectingString
+    case ExpectingIntegerLiteral
 }
