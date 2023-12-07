@@ -23,7 +23,7 @@ enum TokenType {
     case skip
 }
 
-public typealias CaseCallbackType<T: LexerProtocol> = (inout T) -> T where T.TokenType == T
+public typealias CaseCallbackType<T: LexerProtocol, R> = (inout LexerMachine<T>) -> R
 
 // MARK: - Enum Case Token Registry
 
