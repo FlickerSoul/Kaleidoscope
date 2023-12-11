@@ -23,8 +23,6 @@ enum TokenType {
     case skip
 }
 
-public typealias CaseCallbackType<T: LexerProtocol, R> = (inout LexerMachine<T>) -> R
-
 // MARK: - Enum Case Token Registry
 
 public struct EnumCaseRegistry: PeerMacro {

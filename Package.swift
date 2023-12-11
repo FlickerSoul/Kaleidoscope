@@ -37,11 +37,11 @@ let package = Package(
             ],
             swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
         ),
-        .target(name: "KaleidoscopeLexer", swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
+        .target(name: "KaleidoscopeLexer"),
         // Library that exposes a macro as part of its API, which is used in client programs.
-        .target(name: "Kaleidoscope", dependencies: ["KaleidoscopeMacros", "KaleidoscopeLexer"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
+        .target(name: "Kaleidoscope", dependencies: ["KaleidoscopeMacros", "KaleidoscopeLexer"]),
         // A client of the library, which is able to use the macro in its own code.
-        .executableTarget(name: "KaleidoscopeClient", dependencies: ["Kaleidoscope"], swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]),
+        .executableTarget(name: "KaleidoscopeClient", dependencies: ["Kaleidoscope"]),
 
         // A test target used to develop the macro implementation.
         .testTarget(
@@ -50,8 +50,7 @@ let package = Package(
                 "KaleidoscopeMacros",
                 "Kaleidoscope",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ],
-            swiftSettings: [.unsafeFlags(["-Xfrontend", "-enable-experimental-string-processing"])]
+            ]
         ),
     ]
 )

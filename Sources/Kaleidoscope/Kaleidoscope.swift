@@ -2,7 +2,6 @@
 // https://docs.swift.org/swift-book
 
 @_exported import KaleidoscopeLexer
-import KaleidoscopeMacros
 import SwiftSyntax
 
 /// A macro that generates a enum case.
@@ -18,6 +17,8 @@ import SwiftSyntax
 ///         case def
 ///     }
 ///
+
+public typealias CaseCallbackType<T: LexerProtocol, R> = (inout LexerMachine<T>) -> R
 
 @attached(peer)
 public macro token<T, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")

@@ -5,7 +5,6 @@
 //  Created by Larry Zeng on 12/2/23.
 //
 
-import _RegexParser
 @testable import KaleidoscopeMacros
 import XCTest
 
