@@ -19,12 +19,14 @@ protocol IntoNode {
     func into() -> Node
 }
 
+/// Graph Node Type
 public enum Node {
-    /// the terminal of the graph
+    /// The terminal of the graph
     case Leaf(Node.LeafContent)
-    /// the state that can lead to multiple states
+    /// The state that can lead to multiple states
     case Branch(Node.BranchContent)
 
+    /// Mark used node in order to shake out unused ones.
     func shake(marks: inout [Bool], index: Int, graph: inout Graph) throws {
         marks[index] = true
 
@@ -56,6 +58,7 @@ public enum Node {
         }
     }
 
+    /// Shake the nodes into the right places.
     func shake(marks: inout [Bool], indexMapping: inout [Int?], newNodes: inout [Node?], oldIndex: Int, newIndex: Int, graph: inout Graph) throws {
         marks[oldIndex] = false
 
@@ -102,7 +105,7 @@ extension Node: IntoNode {
     }
 }
 
-extension Node.BranchHit: Comparable {
+extension Node.BranchHit: @retroactive Comparable {
     public static func < (lhs: ClosedRange<Bound>, rhs: ClosedRange<Bound>) -> Bool {
         return lhs.lowerBound < rhs.lowerBound || (lhs.lowerBound == rhs.lowerBound && lhs.upperBound < rhs.upperBound)
     }

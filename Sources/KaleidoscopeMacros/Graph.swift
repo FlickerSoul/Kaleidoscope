@@ -24,14 +24,25 @@ enum GraphError: Error {
 
 // MARK: - Graph Input
 
+/// An input to the graph, serving as a mark of the automata terminal
 public struct GraphInput {
     typealias TokenNameType = String
 
+    /// The name of the token, as is in the token enum declaration, which will be used to construct lexer code
     let token: TokenNameType
+    /// The type of the token
     let tokenType: TokenType
+    /// The high level intermediate representation
     let hir: HIR
+    /// The priority of this input/terminal
     let priority: UInt
 
+    /// Create a graph input
+    /// - Parameters:
+    ///   - token: the token name, as is in the enum declaration
+    ///   - tokenType: the token type
+    ///   - hir: the high level intermediate representation of how to match for this token
+    ///   - priority: the priority of this input/terminal, default to the hir's priority
     init(token: String, tokenType: TokenType, hir: HIR, priority: UInt? = nil) {
         self.token = token
         self.tokenType = tokenType
@@ -124,12 +135,14 @@ extension OrderedSet {
 
 // MARK: - Automata Graph
 
+/// Pending merge data type, denoting the merging with a unknown node
 public struct PendingMerge: Hashable {
     let waiting: NodeId
     let has: NodeId
     let into: NodeId
 }
 
+/// Merge data type, denoting two merged nodes
 public struct Merge: Hashable, Equatable {
     let left: NodeId
     let right: NodeId
@@ -137,12 +150,17 @@ public struct Merge: Hashable, Equatable {
 
 /// Automata representation graph
 public struct Graph {
+    /// The nodes in this automata graph
     var nodes: [Node?] = [nil]
+    /// The terminal informaiton of this graph
     var inputs: OrderedSet<GraphInput> = []
-    var hashMap: [UInt: NodeId] = [:]
+    /// The merges that have not been completed
     var pendingMerges: [PendingMerge] = []
+    /// The merge records
     var merges: [Merge: NodeId] = [:]
+    /// The tentative roots of this graph
     var roots: [NodeId] = []
+    /// The unified root of this graph
     var rootId: NodeId?
 }
 
@@ -220,6 +238,8 @@ extension Graph {
 // MARK: - Handle Graph Input
 
 extension Graph {
+    /// Push a graph terminal into the graph.
+    /// - Parameter input: the graph terminal information
     public mutating func push(input: GraphInput) throws {
         if inputs.contains(input) {
             throw GraphError.DuplicatedInputs
@@ -239,10 +259,10 @@ extension Graph {
     /// Push a HIR of a token/regex into graph
     ///
     /// - Parameters:
-    ///     - hir: High-level intermediate representation
-    ///     - then: Node ID to go to if success
-    ///     - miss: Node ID to go to if failed
-    ///     - reserve: Reserved Node ID to be placed into
+    ///   - hir: high-level intermediate representation
+    ///   - succ: node ID to go to if success
+    ///   - miss: node ID to go to if failed
+    ///   - reserved: reserved Node ID to be placed into
     /// - Returns: Node ID of the start of the chain
     mutating func push(_ hir: HIR, _ succ: NodeId, _ miss: NodeId? = nil, _ reserved: NodeId? = nil) throws -> NodeId {
         switch hir {

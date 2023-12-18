@@ -21,6 +21,8 @@ let KALEIDOSCOPE_TOKEN_NAME: String = "token"
 let KALEIDOSCOPE_PRIORITY_OPTION: String = "priority"
 let KALEIDOSCOPE_ON_MATCH_OPTION: String = "onMatch"
 
+/// This extension macro generates an extension to the decorated enum and make it conform to the lexer protocol
+/// so that the decorated enum can be a tokenizer.
 public struct KaleidoscopeBuilder: ExtensionMacro {
     public static func expansion(of node: SwiftSyntax.AttributeSyntax, attachedTo declaration: some SwiftSyntax.DeclGroupSyntax, providingExtensionsOf type: some SwiftSyntax.TypeSyntaxProtocol, conformingTo protocols: [SwiftSyntax.TypeSyntax], in context: some SwiftSyntaxMacros.MacroExpansionContext) throws -> [SwiftSyntax.ExtensionDeclSyntax] {
         guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
@@ -153,6 +155,7 @@ func parse(token: AttributeSyntax) throws -> AttrMatchInfo {
     return try parse(token, isToken: true)
 }
 
+/// Parses an enum case's information.
 func parse(_ attr: AttributeSyntax, isToken: Bool) throws -> AttrMatchInfo {
     guard let arguments = attr.arguments?.as(LabeledExprListSyntax.self) else {
         throw KaleidoscopeError.ParsingError

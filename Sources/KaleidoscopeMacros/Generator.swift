@@ -13,8 +13,8 @@ enum GeneratorError: Error {
     case BuildingEmptyNode
 }
 
+/// Generates the lexer code
 struct Generator {
-    /// Generate function definitions
     let graph: Graph
     let enumIdent: String
     var functionMapping: [Int: String] = [:]
@@ -46,6 +46,9 @@ struct Generator {
         return functionMapping.values.joined(separator: "\n")
     }
 
+    /// Generate leaf lexer handles, based on the token type
+    /// - Parameters:
+    ///     - node: the leaf graph node
     func buildLeaf(node: Node.LeafContent) -> String {
         let end = graph.inputs[node.endId]
         switch end.tokenType {
@@ -67,11 +70,14 @@ struct Generator {
                 return """
                 try lexer.setToken(\(enumIdent).\(end.token)(\(lambda)(&lexer)))
                 """
-                // TODO: the lambda to string might not work?
             }
         }
     }
 
+    /// Generate branch lexer handles, where each branch corresponds to a swift case.
+    /// Cases in the swift are grouped to reduce file length and complexity.
+    /// - Parameters:
+    ///     - node: the branch graph node
     func buildBranch(node: Node.BranchContent) -> String {
         var branches: [String] = []
         var mergeCaes: [NodeId: [Node.BranchHit]] = [:]
@@ -120,10 +126,14 @@ struct Generator {
         """
     }
 
+    /// Generate function identifier based for a graph node.
+    /// - Parameters:
+    ///   - nodeId: the ID of the node in the graph
     func generateFuncIdent(nodeId: UInt) -> String {
         generateFuncIdent(nodeId: Int(nodeId))
     }
 
+    /// Generate function identifier given an integer, usually the node ID
     func generateFuncIdent(nodeId: Int) -> String {
         return "jumpTo_\(nodeId)"
     }

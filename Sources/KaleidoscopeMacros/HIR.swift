@@ -76,6 +76,7 @@ public enum HIRParsingError: Error {
 
 // MARK: - Regex Repetition Kinds
 
+/// A representation of regex repetition.
 enum RepetitionRange {
     case exactly(right: Int)
     case nOrMore(left: Int)
@@ -346,6 +347,9 @@ public extension HIR {
 // MARK: - HIR priority
 
 public extension HIR {
+    /// Calculate this hir's priority. It has the following property.
+    /// The more specific, the higher the score is.
+    /// The longer the regex is, the higher the score is.
     func priority() -> UInt {
         switch self {
         case .Empty, .Loop, .Maybe:
