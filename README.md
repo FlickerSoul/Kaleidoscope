@@ -7,7 +7,7 @@ This is a lexer inspired by [logos](https://github.com/maciejhirsz/logos). It ut
 ```swift
 import Kaleidoscope
 
-let lambda: (inout LexerMachine<Tokens>) -> Substring = { (lex: inout LexerMachine<Tokens>) in lex.slice }
+let lambda: (inout LexerMachine<Tokens>) -> Substring = { $0.slice }
 
 @kaleidoscope(skip: " |\t|\n")
 enum Tokens {
@@ -20,7 +20,8 @@ enum Tokens {
     @token("tokenizer")
     case Tokenizer
 
-    // you could feed a closure directly to `onMatch` but swift doesn't like it for some reason...?
+    // you could feed a closure directly to `onMatch` but swift doesn't like it for some reason
+    // seems to be a compiler bug (https://github.com/apple/swift/issues/70322)
     @regex("[a-zA-Z_][a-zA-Z1-9$_]*?", onMatch: lambda) 
     case Identifier(Substring)
 }
