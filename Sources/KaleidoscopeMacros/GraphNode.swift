@@ -127,41 +127,7 @@ extension Node.BranchHit: @retroactive Comparable {
 }
 
 public extension Node {
-    typealias BranchHit = HIR.Scalar
-
-//    enum BranchHit: Hashable, ExpressibleByStringLiteral, Comparable {
-//        public typealias StringLiteralType = String
-//
-//        case Range(HIR.Scalar)
-//
-//        public init(stringLiteral value: String) {
-//            self = .Range(value.first!.scalar)
-//        }
-//
-//        public func description() throws -> String {
-//            switch self {
-//            case .Range(let range):
-//                guard let lower = Unicode.Scalar(range.lowerBound)?.escaped(asASCII: true),
-//                      let upper = Unicode.Scalar(range.upperBound)?.escaped(asASCII: true)
-//                else {
-//                    throw HIRParsingError.IncorrectCharRange
-//                }
-//
-//                if lower == upper {
-//                    return lower
-//                } else {
-//                    return "\"\(lower)\" ... \"\(upper)\""
-//                }
-//            }
-//        }
-//
-//        public static func < (lhs: Node.BranchHit, rhs: Node.BranchHit) -> Bool {
-//            switch (lhs, rhs) {
-//            case (.Range(let l), .Range(let r)):
-//                return l.lowerBound < r.lowerBound || l.upperBound < r.upperBound
-//            }
-//        }
-//    }
+    typealias BranchHit = HIR.ScalarByteRange
 
     struct BranchContent: Hashable, Copy, IntoNode {
         var branches: [BranchHit: NodeId] = [:]
@@ -237,7 +203,7 @@ public extension Node {
                 // go through all sorted hits
                 while index < sortedHits.count {
                     // get the one we are merging
-                    var curr: HIR.Scalar? = sortedHits[index]
+                    var curr: HIR.ScalarByteRange? = sortedHits[index]
                     var currId = combined[curr!]!
 
                     // prepare spaces, and get every ranges that have intersection with curr

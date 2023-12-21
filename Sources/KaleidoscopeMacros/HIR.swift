@@ -21,11 +21,11 @@ import Foundation
 /// - SeeAlso
 /// [AST Node API](https://swiftinit.org/docs/swift/_regexparser/ast/node)
 public indirect enum HIR: Hashable {
-    public typealias ScalarByte = UInt16
+    public typealias ScalarByte = UInt32
     public typealias ScalarBytes = [ScalarByte]
 
-    public typealias Scalar = ClosedRange<ScalarByte>
-    public typealias Scalars = [Scalar]
+    public typealias ScalarByteRange = ClosedRange<ScalarByte>
+    public typealias ScalarByteRanges = [ScalarByteRange]
 
     static let SCALAR_RANGE = ScalarByte.min ... ScalarByte.max
 
@@ -34,27 +34,27 @@ public indirect enum HIR: Hashable {
     case Alternation([HIR])
     case Loop(HIR)
     case Maybe(HIR)
-    case Literal(Scalar)
-    case Class([Scalar])
+    case Literal(ScalarBytes)
+    case Class([ScalarByteRange])
 }
 
 extension Unicode.Scalar {
     var scalarByte: HIR.ScalarByte {
-        return HIR.ScalarBytes(self.utf16).first!
+        return self.value
     }
 
-    var scalar: HIR.Scalar {
-        return self.scalarByte ... self.scalarByte
+    var scalarBytes: HIR.ScalarBytes {
+        return [self.value]
     }
 }
 
 extension Character {
     var scalarByte: HIR.ScalarByte {
-        return HIR.ScalarBytes(self.utf16).first!
+        return self.unicodeScalars.first!.scalarByte
     }
 
-    var scalar: HIR.Scalar {
-        return self.scalarByte ... self.scalarByte
+    var scalarBytes: HIR.ScalarBytes {
+        return [self.scalarByte]
     }
 }
 
@@ -197,53 +197,52 @@ public extension HIR {
     }
 
     internal init(_ quote: AST.Quote) {
-        self = quote.literal.map { .Literal($0.scalar) }.wrapOrExtract(wrapper: HIR.Concat)
+        self = quote.literal.map { .Literal($0.scalarBytes) }.wrapOrExtract(wrapper: HIR.Concat)
     }
 
     internal init(_ atom: AST.Atom) throws {
         switch atom.kind {
         case .char(let char), .keyboardMeta(let char), .keyboardControl(let char), .keyboardMetaControl(let char):
-            self = .Literal(char.scalar)
+            self = .Literal(char.scalarBytes)
         case .scalar(let scalar):
-            self = .Literal(scalar.value.scalar)
+            self = .Literal(scalar.value.scalarBytes)
         case .scalarSequence(let scalarSequence):
-            self = scalarSequence.scalarValues.map { .Literal($0.scalar) }.wrapOrExtract(wrapper: HIR.Concat)
+            self = scalarSequence.scalarValues.map { .Literal($0.scalarBytes) }.wrapOrExtract(wrapper: HIR.Concat)
         case .escaped(let escaped):
             guard let scalar = escaped.scalarValue else {
                 throw HIRParsingError.InvalidEscapeCharactor
             }
-            self = .Literal(scalar.scalar)
+            self = .Literal(scalar.scalarBytes)
         case .dot:
-            self = .Literal(("." as Character).scalar)
+            self = .Literal(("." as Character).scalarBytes)
         case .caretAnchor:
-            self = .Literal(("^" as Character).scalar)
+            self = .Literal(("^" as Character).scalarBytes)
         case .dollarAnchor:
-            self = .Literal(("$" as Character).scalar)
+            self = .Literal(("$" as Character).scalarBytes)
         case _:
             throw HIRParsingError.NotSupportedAtomKind
         }
     }
 
-    internal static func parseRange(_ range: AST.CustomCharacterClass.Range) throws -> Scalars {
+    internal static func parseRange(_ range: AST.CustomCharacterClass.Range) throws -> ScalarByteRanges {
         let lhs = range.lhs.kind
         let rhs = range.rhs.kind
         if case .char(let leftChar) = lhs, case .char(let rightChar) = rhs {
-            guard let start = leftChar.utf8.first, let end = rightChar.utf8.last else {
-                throw HIRParsingError.IncorrectCharRange
-            }
-            return [ScalarByte(start) ... ScalarByte(end)]
+            let start = leftChar.scalarByte
+            let end = rightChar.scalarByte
+
+            return [start ... end]
         } else if case .scalar(let leftScalar) = lhs, case .scalar(let rightScalar) = rhs {
-            guard let start = leftScalar.value.utf8.first, let end = rightScalar.value.utf8.last else {
-                throw HIRParsingError.IncorrectCharRange
-            }
-            return [ScalarByte(start) ... ScalarByte(end)]
+            let start = leftScalar.value.scalarByte
+            let end = rightScalar.value.scalarByte
+            return [start ... end]
         } else {
             throw HIRParsingError.NotSupportedCharacterRangeKind
         }
     }
 
-    internal static func processCharacterClass(_ charClass: AST.CustomCharacterClass) throws -> Scalars {
-        let ranges: [Scalars] = try charClass.members.map { member in
+    internal static func processCharacterClass(_ charClass: AST.CustomCharacterClass) throws -> ScalarByteRanges {
+        let ranges: [ScalarByteRanges] = try charClass.members.map { member in
             switch member {
             case .custom(let childMember):
                 return try self.processCharacterClass(childMember).compactMap { $0 }
@@ -252,7 +251,9 @@ public extension HIR {
             case .atom(let atom):
                 switch try HIR(atom) {
                 case .Literal(let scalar):
-                    return [scalar]
+                    assert(scalar.count == 1)
+
+                    return [scalar[0] ... scalar[0]]
                 case _:
                     throw HIRParsingError.NotSupportedAtomKind
                 }
@@ -264,8 +265,7 @@ public extension HIR {
         }
 
         // sort out and make distinct ranges
-
-        var flattened: Scalars = []
+        var flattened: ScalarByteRanges = []
 
         for currRange in ranges.flatMap({ $0 }).sorted() {
             if flattened.count == 0 {
@@ -293,8 +293,8 @@ public extension HIR {
 
         // do invert
         if charClass.isInverted {
-            var results: Scalars = []
-            var remaining: Scalar? = Self.SCALAR_RANGE
+            var results: ScalarByteRanges = []
+            var remaining: ScalarByteRange? = Self.SCALAR_RANGE
 
             for scalar in flattened {
                 guard let remainingUnwrapped = remaining else {
