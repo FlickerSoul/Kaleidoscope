@@ -12,50 +12,66 @@ public enum LexerError: Error {
     case NotMatch
 }
 
-public protocol LexerProtocol {
-    associatedtype TokenType: LexerProtocol
-    typealias Source = String
-    typealias TokenStream = [TokenType]
-    typealias Slice = Substring
+public protocol Into<IntoType> {
+    associatedtype IntoType
 
-    static func lex(_ lexer: inout LexerMachine<Self>) throws
-    static func lexer(source: Source) -> LexerMachine<Self>
+    func into() -> IntoType
 }
 
-public struct LexerMachine<Token: LexerProtocol> {
-    public enum TokenResult: Equatable {
-        case result(Token)
-        case skipped
+public protocol LexerProtocol {
+    associatedtype TokenType: LexerProtocol
+    typealias Source = [UInt32]
+    typealias Slice = Source.SubSequence
+    typealias TokenStream = [TokenType]
 
-        public static func == (lhs: LexerMachine<Token>.TokenResult, rhs: LexerMachine<Token>.TokenResult) -> Bool {
-            switch (lhs, rhs) {
-            case (.skipped, skipped):
-                return true
-            case _:
-                return false
-            }
-        }
+    static func lex<RawSource>(_ lexer: inout LexerMachine<Self, RawSource>) throws
+    static func lexer<RawSource>(source: any Into<Source>) -> LexerMachine<Self, RawSource>
+}
 
-        public static func == (lhs: LexerMachine<Token>.TokenResult, rhs: LexerMachine<Token>.TokenResult) -> Bool where Token: Equatable {
-            switch (lhs, rhs) {
-            case (.skipped, .skipped):
-                return true
-            case (.result(let lhs), .result(let rhs)):
-                return lhs == rhs
-            case _:
-                return false
-            }
+public enum TokenResult<Token: LexerProtocol>: Equatable, Into {
+    public typealias IntoType = Self
+
+    case result(Token)
+    case skipped
+
+    public static func == (lhs: TokenResult, rhs: TokenResult) -> Bool {
+        switch (lhs, rhs) {
+        case (.skipped, skipped):
+            return true
+        case _:
+            return false
         }
     }
 
+    public static func == (lhs: TokenResult, rhs: TokenResult) -> Bool where Token: Equatable {
+        switch (lhs, rhs) {
+        case (.skipped, .skipped):
+            return true
+        case (.result(let lhs), .result(let rhs)):
+            return lhs == rhs
+        case _:
+            return false
+        }
+    }
+
+    public func into() -> TokenResult<Token> {
+        return self
+    }
+}
+
+public struct LexerMachine<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection> {
+    public typealias RawSlice = RawSource.SubSequence
+
+    let rawSource: RawSource
     let source: Token.Source
-    var token: TokenResult?
+    var token: TokenResult<Token>?
     var tokenStart: Int
     var tokenEnd: Int
     var failed: Bool
 
-    public init(source: LexerProtocol.Source, token: TokenResult? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
-        self.source = source
+    public init(source: RawSource, token: TokenResult<Token>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
+        self.rawSource = source
+        self.source = rawSource.into()
         self.token = token
         self.tokenStart = tokenStart
         self.tokenEnd = tokenEnd
@@ -73,23 +89,18 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    public var slice: Token.Slice {
-        let start = source.startIndex
-        let range = source.index(start, offsetBy: tokenStart) ..< source.index(start, offsetBy: tokenEnd)
-        return source[range]
+    public var rawSlice: RawSlice {
+        let start = rawSource.startIndex
+        let range = rawSource.index(start, offsetBy: tokenStart) ..< rawSource.index(start, offsetBy: tokenEnd)
+        return rawSource[range]
     }
 
     @inline(__always)
-    public var remainder: Token.Slice {
-        let start = source.startIndex
-        let range = source.index(start, offsetBy: tokenEnd) ..< source.index(start, offsetBy: boundary)
+    public var rawRemainder: RawSlice {
+        let start = rawSource.startIndex
+        let range = rawSource.index(start, offsetBy: tokenEnd) ..< rawSource.index(start, offsetBy: boundary)
 
-        return source[range]
-    }
-
-    @inline(__always)
-    public func branch() -> Self {
-        return .init(source: source, token: nil, tokenStart: 0, tokenEnd: 0)
+        return rawSource[range]
     }
 
     @inline(__always)
@@ -111,7 +122,7 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    mutating func take() throws -> TokenResult {
+    mutating func take() throws -> TokenResult<Token> {
         switch token {
         case .none:
             throw LexerError.EmptyToken
@@ -122,17 +133,17 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    public var spanned: SpannedLexerIter<Token> {
+    public var spanned: SpannedLexerIter<Token, RawSource> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    public var sliced: SlicedLexerIter<Token> {
+    public var sliced: SlicedLexerIter<Token, RawSource> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    public var spannedAndSliced: SpannedSlicedLexerIter<Token> {
+    public var spannedAndSliced: SpannedSlicedLexerIter<Token, RawSource> {
         return .init(lexer: self)
     }
 
@@ -197,8 +208,8 @@ extension LexerMachine: Sequence, IteratorProtocol {
     }
 }
 
-public struct SpannedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token>
+public struct SpannedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
+    var lexer: LexerMachine<Token, RawSource>
 
     public mutating func next() -> (Result<Token, Error>, Range<Int>)? {
         if let token = lexer.next() {
@@ -209,24 +220,24 @@ public struct SpannedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol
     }
 }
 
-public struct SlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token>
+public struct SlicedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
+    var lexer: LexerMachine<Token, RawSource>
 
-    public mutating func next() -> (Result<Token, Error>, Substring)? {
+    public mutating func next() -> (Result<Token, Error>, RawSource.SubSequence)? {
         if let token = lexer.next() {
-            return (token, lexer.slice)
+            return (token, lexer.rawSlice)
         } else {
             return nil
         }
     }
 }
 
-public struct SpannedSlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token>
+public struct SpannedSlicedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
+    var lexer: LexerMachine<Token, RawSource>
 
-    public mutating func next() -> (Result<Token, Error>, Range<Int>, Substring)? {
+    public mutating func next() -> (Result<Token, Error>, Range<Int>, RawSource.SubSequence)? {
         if let token = lexer.next() {
-            return (token, lexer.span, lexer.slice)
+            return (token, lexer.span, lexer.rawSlice)
         } else {
             return nil
         }
@@ -235,12 +246,12 @@ public struct SpannedSlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorPr
 
 public extension LexerMachine {
     @inline(__always)
-    func peak() -> Character? {
+    func peak() -> Token.Source.Element? {
         return peak(at: tokenEnd)
     }
 
     @inline(__always)
-    func peak(at index: Int) -> Character? {
+    func peak(at index: Int) -> Token.Source.Element? {
         if index == boundary {
             return nil
         }
@@ -249,7 +260,7 @@ public extension LexerMachine {
     }
 
     @inline(__always)
-    func peak(from start: Int, to end: Int) -> Substring {
+    func peak(from start: Int, to end: Int) -> Token.Source.SubSequence {
         let startIndex = source.startIndex
         let range = source.index(startIndex, offsetBy: start) ..< source.index(startIndex, offsetBy: end)
         return source[range]
