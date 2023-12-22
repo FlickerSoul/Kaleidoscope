@@ -496,7 +496,11 @@ extension Graph {
     }
 
     mutating func makeRoot() throws -> NodeId {
-        var rootId = try insertOrPush(Node.BranchContent())
+        if roots.count == 0 {
+            throw GraphError.EmptyRoot
+        }
+
+        var rootId = roots.popLast()!
 
         for root in roots {
             rootId = try merge(rootId, root)

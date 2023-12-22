@@ -72,18 +72,23 @@ public enum Node {
                 }
             }
         case .Seq(let seqContent):
-            guard let thenNode = graph.get(node: seqContent.then) else {
-                throw GraphError.ShakingError("Node \(seqContent.then) is nil")
+            let thenIndex = Int(seqContent.then)
+            if !marks[thenIndex] {
+                guard let thenNode = graph.get(node: seqContent.then) else {
+                    throw GraphError.ShakingError("Node \(seqContent.then) is nil")
+                }
+                try thenNode.shake(marks: &marks, index: thenIndex, graph: &graph)
             }
 
-            try thenNode.shake(marks: &marks, index: Int(seqContent.then), graph: &graph)
-
             if let missId = seqContent.miss?.miss {
-                guard let missNode = graph.get(node: missId) else {
-                    throw GraphError.ShakingError("Node \(missId) is nil")
-                }
+                let missIndex = Int(missId)
+                if !marks[missIndex] {
+                    guard let missNode = graph.get(node: missId) else {
+                        throw GraphError.ShakingError("Node \(missId) is nil")
+                    }
 
-                try missNode.shake(marks: &marks, index: Int(missId), graph: &graph)
+                    try missNode.shake(marks: &marks, index: missIndex, graph: &graph)
+                }
             }
         }
     }
@@ -517,6 +522,8 @@ extension Node: Hashable {
             return lhsLeaf == rhsLeaf
         case (.Branch(let lhsBranch), .Branch(let rhsBranch)):
             return lhsBranch == rhsBranch
+        case (.Seq(let lhsSeq), .Seq(let rhsSeq)):
+            return lhsSeq == rhsSeq
         case _:
             return false
         }
