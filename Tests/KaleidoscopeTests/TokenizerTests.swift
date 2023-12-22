@@ -10,7 +10,7 @@ import KaleidoscopeMacros
 import XCTest
 
 @kaleidoscope()
-enum PriorityTest {
+enum PriorityTest: Equatable {
     @token("fast")
     case Fast
 
@@ -18,14 +18,14 @@ enum PriorityTest {
     case Faaaast
 }
 
-let convertInt = { (lexer: inout LexerMachine<CallbackTest>) in Int(lexer.slice)! }
+let convertInt = { (lexer: inout LexerMachine<CallbackTest>) in Int(lexer.rawSlice)! }
 
-let convertDouble = { (lexer: inout LexerMachine<CallbackTest>) in Double(lexer.slice)! }
+let convertDouble = { (lexer: inout LexerMachine<CallbackTest>) in Double(lexer.rawSlice)! }
 
-let toSubstring = { (lexer: inout LexerMachine<CallbackTest>) in lexer.slice }
+let toSubstring = { (lexer: inout LexerMachine<CallbackTest>) in lexer.rawSlice }
 
 @kaleidoscope(skip: " ")
-enum CallbackTest {
+enum CallbackTest: Equatable {
     @regex("[0-9]*?.[0-9]+?", onMatch: convertDouble)
     case Double(Double)
 
@@ -38,10 +38,10 @@ enum CallbackTest {
 
 final class TestTokenizer: XCTestCase {
     func testPriority() throws {
-        _ = PriorityTest.lexer(source: "fast").toUnwrappedArray()
+        XCTAssertEqual(PriorityTest.lexer(source: "fast").toUnwrappedArray(), [PriorityTest.Faaaast])
     }
 
     func testCallback() throws {
-        _ = CallbackTest.lexer(source: "100 1.5 what").toUnwrappedArray()
+        XCTAssertEqual(CallbackTest.lexer(source: "100 1.5 what").toUnwrappedArray(), [CallbackTest.Number(100), CallbackTest.Double(1.5), CallbackTest.What("what")])
     }
 }
