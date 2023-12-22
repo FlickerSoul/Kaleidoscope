@@ -252,7 +252,7 @@ public extension LexerMachine {
 
     @inline(__always)
     func peak(at index: Int) -> Token.Source.Element? {
-        if index == boundary {
+        if index >= boundary {
             return nil
         }
 
@@ -260,9 +260,21 @@ public extension LexerMachine {
     }
 
     @inline(__always)
-    func peak(from start: Int, to end: Int) -> Token.Source.SubSequence {
-        let startIndex = source.startIndex
-        let range = source.index(startIndex, offsetBy: start) ..< source.index(startIndex, offsetBy: end)
-        return source[range]
+    func peak(for len: Int) -> Token.Source.SubSequence? {
+        return peak(at: tokenEnd, for: len)
+    }
+
+    @inline(__always)
+    func peak(at: Int, for len: Int) -> Token.Source.SubSequence? {
+        return peak(from: at, to: at + len)
+    }
+
+    @inline(__always)
+    func peak(from start: Int, to end: Int) -> Token.Source.SubSequence? {
+        if end > boundary {
+            return nil
+        }
+
+        return source[start ..< end]
     }
 }

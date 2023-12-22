@@ -20,6 +20,7 @@ enum GraphError: Error {
     case ShakingError(String)
     case EmptyChildren
     case MergingRangeError
+    case LongSeqAsBranch
 }
 
 // MARK: - Graph Input
@@ -179,8 +180,12 @@ extension Graph {
         if let reserved = reserved {
             return try insert(node, reserved)
         } else {
-            return reserve(node)
+            return push(node)
         }
+    }
+
+    mutating func push<I: IntoNode>(_ node: I) -> NodeId {
+        return reserve(node.into())
     }
 
     mutating func insert<I: IntoNode>(_ node: I, _ reserved: NodeId) throws -> NodeId {
@@ -219,8 +224,8 @@ extension Graph {
             return content.copy()
         case .Leaf:
             return Node.BranchContent(miss: id)
-//        case .Seq(let content):
-//            return try! content.toBranch()
+        case .Seq(let content):
+            return content.copy().toBranch(graph: &self) // copy to avoid modification
         }
     }
 
@@ -235,7 +240,7 @@ extension Graph {
     }
 }
 
-// MARK: - Handle Graph Input
+// MARK: - Handle Graph HIR Input
 
 extension Graph {
     /// Push a graph terminal into the graph.
@@ -288,16 +293,35 @@ extension Graph {
         case .Concat(let concat):
             // TODO: optomize continuous literal and class?
             // create shadow to allow chaining
+            var buffer: [HIR.ScalarBytes] = []
             var succ = succ
+
             if concat.count != 0 {
                 // reverse concat, to allow chaining, succ <- n-1 <- n-2 ... <- 1
                 for child in concat[1...].reversed() {
                     // everything in between doesn't allow miss
-                    succ = try push(child, succ)
+                    if case .Literal(let bytes) = child {
+                        buffer.append(bytes)
+                    } else {
+                        let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
+                        buffer.removeAll()
+
+                        succ = try push(.Literal(bytes), succ)
+                        succ = try push(child, succ)
+                    }
                 }
 
+                // clean up buffer and
                 // push the first to complete the chain, succ <- ... <- 1 <- 0
-                succ = try push(concat[0], succ, miss, reserved)
+                if case .Literal(var lastBytes) = concat[0] {
+                    buffer.append(lastBytes)
+                    let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
+                    succ = try push(.Literal(bytes), succ, miss, reserved)
+                } else {
+                    let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
+                    succ = try push(.Literal(bytes), succ)
+                    succ = try push(concat[0], succ, miss, reserved)
+                }
             }
 
             // if the concat is empty, return succ directly
@@ -321,14 +345,11 @@ extension Graph {
 
             return branchId
 
-        case .Literal(let byte):
+        case .Literal(let bytes):
             return try reserve(
-                Node.BranchContent(
-                    branches: [byte: succ], miss: miss
-                ),
+                Node.SeqContent(seq: bytes, then: succ, miss: Node.SeqMiss.toFirst(miss)),
                 reserved
             )
-        //            return try reserve(Node.SeqContent(seq: bytes, then: succ, miss: miss), reserved)
         case .Class(let classRanges):
             // push a class hir as usual
             let branches: [Node.BranchHit: NodeId] = Dictionary(uniqueKeysWithValues: classRanges.map { ($0, succ) })
@@ -392,17 +413,64 @@ extension Graph {
         return try mergeKnown(a, b, reserved)
     }
 
+    mutating func mergeSeq(_ seq: Node.SeqContent, _ other: Node, _ otherId: NodeId) -> Node.SeqContent? {
+        switch other {
+        case .Branch(let branchContent):
+            if seq.miss == nil {
+                var loopCount = 0
+
+                // count how many bytes in the prefix is in a loop
+                // the count of nice6 and [a-z]*? is 4
+                while loopCount < seq.seq.count {
+                    if branchContent.contains(seq.seq[loopCount]) == .some(otherId) {
+                        loopCount += 1
+                    } else {
+                        break
+                    }
+                }
+
+                if let newSeq = seq.split(at: loopCount, graph: &self)?.miss(anytime: otherId) {
+                    newSeq.then = try! merge(newSeq.then, otherId)
+                    return newSeq
+                }
+            }
+        case .Seq(let otherSeq):
+            if let (prefix, miss) = seq.prefix(with: otherSeq) {
+                let newSeq = seq.copy().asRemainder(at: prefix.count, graph: &self)
+                let newOther = otherSeq.copy().asRemainder(at: prefix.count, graph: &self)
+
+                return try! .init(seq: prefix, then: merge(newSeq, newOther), miss: miss)
+            }
+        case .Leaf:
+            if seq.miss == nil {
+                return seq.miss(first: otherId)
+            }
+        }
+
+        return nil
+    }
+
     mutating func mergeKnown(_ a: NodeId, _ b: NodeId, _ into: NodeId) throws -> NodeId {
         // asserting lhs and rhs are not nil
         guard let lhs = get(node: a), let rhs = get(node: b) else {
             throw GraphError.EmptyMerging("This shouldn't happen.")
         }
 
+        var newSeq: Node.SeqContent? = nil
+
         switch (lhs, rhs) {
         case (.Leaf, .Leaf):
             throw GraphError.MergingLeaves
+        case (.Seq(let seq), _):
+            newSeq = mergeSeq(seq.copy(), rhs, b)
+        case (_, .Seq(let seq)):
+            newSeq = mergeSeq(seq.copy(), lhs, a)
         case _:
             break
+        }
+
+        if let newSeq = newSeq {
+            return try insertOrPush(newSeq, into)
         }
 
         var lhsContent = branch(from: lhs, a)

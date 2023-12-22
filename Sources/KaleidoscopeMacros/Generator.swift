@@ -27,6 +27,8 @@ struct Generator {
                 body = buildLeaf(node: content)
             case .Branch(let content):
                 body = buildBranch(node: content)
+            case .Seq(let content):
+                body = buildSeq(node: content)
             case .none:
                 throw GeneratorError.BuildingEmptyNode
             }
@@ -90,9 +92,7 @@ struct Generator {
         }
 
         for (nodeId, cases) in mergeCaes {
-            let caseString = cases.map { branchCase in
-                try! branchCase.toCode()
-            }.joined(separator: ", ")
+            let caseString = cases.map { $0.toCode() }.joined(separator: ", ")
             branches.append("""
             case \(caseString):
                 try lexer.bump()
@@ -121,6 +121,29 @@ struct Generator {
             \(branches.joined(separator: "\n"))
 
             case _:
+            \(miss)
+        }
+        """
+    }
+
+    func buildSeq(node: Node.SeqContent) -> String {
+        let miss: String
+
+        if let missId = node.miss?.miss {
+            miss = "try \(generateFuncIdent(nodeId: missId))(&lexer)"
+        } else {
+            miss = ""
+        }
+
+        return """
+        guard let scalars = lexer.peak(for: \(node.seq.count)) else {
+            \(miss)
+            reutrn
+        }
+
+        if \(node.seq.toCode()) == scalars {
+            try \(generateFuncIdent(nodeId: node.then))(&lexer)
+        } else {
             \(miss)
         }
         """

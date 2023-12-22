@@ -19,12 +19,28 @@ protocol IntoNode {
     func into() -> Node
 }
 
+func shakeId(marks: inout [Bool], oldId: NodeId, indexMapping: inout [Int?], newNodes: inout [Node?], graph: inout Graph) throws -> NodeId {
+    let oldIndex = Int(oldId)
+    guard let newIndex = indexMapping[oldIndex] else {
+        throw GraphError.ShakingError("Cannot Find Shaked Index Of Node \(oldIndex)")
+    }
+    let newId = NodeId(newIndex)
+
+    if marks[oldIndex] {
+        try graph.get(node: oldId)?.shake(marks: &marks, indexMapping: &indexMapping, newNodes: &newNodes, oldIndex: oldIndex, newIndex: newIndex, graph: &graph)
+    }
+
+    return newId
+}
+
 /// Graph Node Type
 public enum Node {
     /// The terminal of the graph
     case Leaf(Node.LeafContent)
     /// The state that can lead to multiple states
     case Branch(Node.BranchContent)
+    /// A sequence of bytes
+    case Seq(Node.SeqContent)
 
     /// Mark used node in order to shake out unused ones.
     func shake(marks: inout [Bool], index: Int, graph: inout Graph) throws {
@@ -55,6 +71,20 @@ public enum Node {
                     try node.shake(marks: &marks, index: nodeIndex, graph: &graph)
                 }
             }
+        case .Seq(let seqContent):
+            guard let thenNode = graph.get(node: seqContent.then) else {
+                throw GraphError.ShakingError("Node \(seqContent.then) is nil")
+            }
+
+            try thenNode.shake(marks: &marks, index: Int(seqContent.then), graph: &graph)
+
+            if let missId = seqContent.miss?.miss {
+                guard let missNode = graph.get(node: missId) else {
+                    throw GraphError.ShakingError("Node \(missId) is nil")
+                }
+
+                try missNode.shake(marks: &marks, index: Int(missId), graph: &graph)
+            }
         }
     }
 
@@ -69,32 +99,29 @@ public enum Node {
             var newBranches: [BranchHit: NodeId] = [:]
 
             for (char, branchId) in branchContent.branches {
-                let oldChildIndex = Int(branchId)
-                guard let newChildIndex = indexMapping[oldChildIndex] else {
-                    throw GraphError.ShakingError("Cannot Find Shaked Index Of Node \(oldChildIndex)")
-                }
-
-                newBranches[char] = NodeId(newChildIndex)
-
-                if marks[oldChildIndex] {
-                    try graph.get(node: branchId)?.shake(marks: &marks, indexMapping: &indexMapping, newNodes: &newNodes, oldIndex: oldChildIndex, newIndex: newChildIndex, graph: &graph)
-                }
+                newBranches[char] = try shakeId(marks: &marks, oldId: branchId, indexMapping: &indexMapping, newNodes: &newNodes, graph: &graph)
             }
 
             var newMiss: NodeId? = nil
             if let missId = branchContent.miss {
-                let oldMissIndex = Int(missId)
-                guard let newMissIndex = indexMapping[oldMissIndex] else {
-                    throw GraphError.ShakingError("Cannot Find Shaked Index Of Node \(oldMissIndex)")
-                }
-
-                newMiss = NodeId(newMissIndex)
-                if marks[oldMissIndex] {
-                    try graph.get(node: missId)?.shake(marks: &marks, indexMapping: &indexMapping, newNodes: &newNodes, oldIndex: oldMissIndex, newIndex: newMissIndex, graph: &graph)
-                }
+                newMiss = try shakeId(marks: &marks, oldId: missId, indexMapping: &indexMapping, newNodes: &newNodes, graph: &graph)
             }
 
             newNodes[newIndex] = Node.Branch(.init(branches: newBranches, miss: newMiss))
+        case .Seq(let seqContent):
+            let newThenId = try shakeId(marks: &marks, oldId: seqContent.then, indexMapping: &indexMapping, newNodes: &newNodes, graph: &graph)
+
+            var miss: Node.SeqMiss?
+            if let seqMiss = seqContent.miss {
+                switch seqMiss {
+                case .anytime(let id):
+                    miss = try .anytime(shakeId(marks: &marks, oldId: id, indexMapping: &indexMapping, newNodes: &newNodes, graph: &graph))
+                case .first(let id):
+                    miss = try .first(shakeId(marks: &marks, oldId: id, indexMapping: &indexMapping, newNodes: &newNodes, graph: &graph))
+                }
+            }
+
+            newNodes[newIndex] = Node.Seq(.init(seq: seqContent.seq, then: NodeId(newThenId), miss: miss))
         }
     }
 }
@@ -102,27 +129,6 @@ public enum Node {
 extension Node: IntoNode {
     public func into() -> Node {
         return self
-    }
-}
-
-extension Node.BranchHit: @retroactive Comparable {
-    public static func < (lhs: ClosedRange<Bound>, rhs: ClosedRange<Bound>) -> Bool {
-        return lhs.lowerBound < rhs.lowerBound || (lhs.lowerBound == rhs.lowerBound && lhs.upperBound < rhs.upperBound)
-    }
-
-    public func toCode() throws -> String {
-        // swift-format-ignore
-        guard let lower = Unicode.Scalar(lowerBound)?.escaped(asASCII: true),
-              let upper = Unicode.Scalar(upperBound)?.escaped(asASCII: true)
-        else {
-            throw HIRParsingError.IncorrectCharRange
-        }
-
-        if lower == upper {
-            return "\"\(lower)\""
-        } else {
-            return "\"\(lower)\" ... \"\(upper)\""
-        }
     }
 }
 
@@ -277,6 +283,16 @@ public extension Node {
 
             branches = Dictionary(uniqueKeysWithValues: zip(merged, mergedId))
         }
+
+        func contains(_ val: HIR.ScalarByte) -> NodeId? {
+            for (range, nodeId) in branches {
+                if range.contains(val) {
+                    return nodeId
+                }
+            }
+
+            return nil
+        }
     }
 }
 
@@ -323,33 +339,171 @@ extension Node.LeafContent: CustomStringConvertible {
     }
 }
 
-// public extension Node {
-//    struct SeqContent: Hashable, Copy, CustomStringConvertible {
-//        var seq: HIR.Scalars
-//        var then: NodeId
-//        var miss: NodeId?
-//
-//        func copy() -> Node.SeqContent {
-//            return .init(seq: seq, then: then, miss: miss)
-//        }
-//
-//        func into() -> Node {
-//            return Node.Seq(self)
-//        }
-//
-//        public var description: String {
-//            return seq.map { range in range.map { Unicode.Scalar($0)!.escaped(asASCII: true) }.joined() }.joined()
-//        }
-//
-//        public func toBranch() throws -> Node.BranchContent {
-//            guard seq.count == 1 else {
-//                throw GraphError.LongSeqToBranch
-//            }
-//
-//            return .init(branches: [seq[0]: then], miss: miss)
-//        }
-//    }
-// }
+public extension Node {
+    enum SeqMiss: Hashable {
+        case first(NodeId)
+        case anytime(NodeId)
+
+        var miss: NodeId {
+            switch self {
+            case .first(let id), .anytime(let id):
+                return id
+            }
+        }
+
+        var anytimeMiss: NodeId? {
+            switch self {
+            case .anytime(let id):
+                return id
+            case _:
+                return nil
+            }
+        }
+
+        static func toFirst(_ id: NodeId?) -> Self? {
+            if let id = id {
+                return .first(id)
+            }
+            return nil
+        }
+
+        static func toAnytime(_ id: NodeId?) -> Self? {
+            if let id = id {
+                return .anytime(id)
+            }
+            return nil
+        }
+    }
+
+    class SeqContent: Copy, IntoNode, Hashable, CustomStringConvertible {
+        var seq: HIR.ScalarBytes
+        var then: NodeId
+        var miss: SeqMiss?
+
+        required init(seq: HIR.ScalarBytes, then: NodeId, miss: SeqMiss? = nil) {
+            self.seq = seq
+            self.then = then
+            self.miss = miss
+        }
+
+        func copy() -> Self {
+            return .init(seq: seq, then: then, miss: miss)
+        }
+
+        func into() -> Node {
+            return Node.Seq(self)
+        }
+
+        public func toBranch(graph: inout Graph) -> Node.BranchContent {
+            let hit = seq.remove(at: 0)
+            let missId = miss?.miss
+
+            let thenId: NodeId
+            if seq.count == 0 {
+                thenId = then
+            } else {
+                thenId = graph.push(self)
+            }
+
+            return .init(branches: [hit.scalarByteRange: thenId], miss: missId)
+        }
+
+        public func asRemainder(at: Int, graph: inout Graph) -> NodeId {
+            seq = Array(seq[at ..< seq.count])
+
+            if seq.count == 0 {
+                return then
+            } else {
+                return graph.push(self)
+            }
+        }
+
+        public func split(at: Int, graph: inout Graph) -> SeqContent? {
+            switch at {
+            case 0:
+                return nil
+            case seq.count:
+                return self
+            case _:
+                break
+            }
+
+            let current = seq[0 ..< at]
+            let next = seq[at ..< seq.count]
+
+            let nextMiss: Node.SeqMiss?
+            if let miss = miss?.anytimeMiss {
+                nextMiss = .anytime(miss)
+            } else {
+                nextMiss = nil
+            }
+
+            let nextId = graph.push(Self(seq: Array(next), then: then, miss: nextMiss))
+
+            seq = Array(current)
+            then = nextId
+
+            return self
+        }
+
+        public func miss(first val: NodeId?) -> Self {
+            if let val = val {
+                miss = .first(val)
+            } else {
+                miss = nil
+            }
+            return self
+        }
+
+        public func miss(anytime val: NodeId?) -> Self {
+            if let val = val {
+                miss = .anytime(val)
+            } else {
+                miss = nil
+            }
+
+            return self
+        }
+
+        public func prefix(with other: SeqContent) -> (HIR.ScalarBytes, SeqMiss)? {
+            var count = 0
+            while count < other.seq.count && count < seq.count {
+                if other.seq[count] == seq[count] {
+                    count += 1
+                } else {
+                    break
+                }
+            }
+
+            if count == 0 {
+                return nil
+            }
+
+            let newSeq = Array(seq[0 ..< count])
+
+            switch (miss, other.miss) {
+            case (nil, .some(let newMiss)), (.some(let newMiss), nil):
+                return (newSeq, newMiss)
+            case _:
+                return nil
+            }
+        }
+
+        public static func == (lhs: Node.SeqContent, rhs: Node.SeqContent) -> Bool {
+            return lhs.seq == rhs.seq && lhs.then == rhs.then && lhs.miss == rhs.miss
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(seq)
+            hasher.combine(then)
+            hasher.combine(miss)
+        }
+
+        public var description: String {
+            return seq.map { Unicode.Scalar($0)!.escaped(asASCII: true) }.joined()
+        }
+    }
+}
 
 extension Node: Hashable {
     public static func == (lhs: Node, rhs: Node) -> Bool {
@@ -369,8 +523,8 @@ extension Node: Hashable {
             leaf.hash(into: &hasher)
         case .Branch(let branch):
             branch.hash(into: &hasher)
-//        case .Seq(let seq):
-//            seq.hash(into: &hasher)
+        case .Seq(let seq):
+            seq.hash(into: &hasher)
         }
     }
 }
@@ -382,8 +536,8 @@ extension Node: CustomStringConvertible {
             return content.description
         case .Branch(let content):
             return content.description
-//        case .Seq(let content):
-//            return content.description
+        case .Seq(let content):
+            return content.description
         }
     }
 }

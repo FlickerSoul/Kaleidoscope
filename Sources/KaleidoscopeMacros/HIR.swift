@@ -58,6 +58,32 @@ extension Character {
     }
 }
 
+extension HIR.ScalarByteRange: @retroactive Comparable {
+    public static func < (lhs: ClosedRange<Bound>, rhs: ClosedRange<Bound>) -> Bool {
+        return lhs.lowerBound < rhs.lowerBound || (lhs.lowerBound == rhs.lowerBound && lhs.upperBound < rhs.upperBound)
+    }
+
+    public func toCode() -> String {
+        if lowerBound == upperBound {
+            return "\(lowerBound)"
+        } else {
+            return "\(lowerBound) ... \(upperBound)"
+        }
+    }
+}
+
+public extension HIR.ScalarBytes {
+    func toCode() -> String {
+        return self.description
+    }
+}
+
+extension HIR.ScalarByte {
+    var scalarByteRange: HIR.ScalarByteRange {
+        return self ... self
+    }
+}
+
 public enum HIRParsingError: Error {
     case InvalidRepetitionRange
     case GreedyMatchingMore
