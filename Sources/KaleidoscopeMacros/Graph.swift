@@ -13,7 +13,7 @@ import OrderedCollections
 enum GraphError: Error {
     case DuplicatedInputs
     case EmptyMerging(String)
-    case IdenticalPriority
+    case IdenticalPriority(String)
     case MergingLeaves
     case OverwriteNonReserved(NodeId)
     case EmptyRoot
@@ -353,7 +353,7 @@ extension Graph {
             } else if rhs > lhs {
                 return b
             } else {
-                throw GraphError.IdenticalPriority
+                throw GraphError.IdenticalPriority("The \(lhs) and \(rhs) leaves have the same priority.")
             }
         case _:
             // otherwise, follow the following code
