@@ -13,6 +13,17 @@ enum GeneratorError: Error {
     case BuildingEmptyNode
 }
 
+extension DefaultStringInterpolation {
+    mutating func appendInterpolation(indented string: String) {
+        let indent = String(description.reversed().prefix { $0 == " " })
+        if indent.isEmpty {
+            appendInterpolation(string)
+        } else {
+            appendLiteral(string.split(separator: "\n", omittingEmptySubsequences: false).joined(separator: "\n" + indent))
+        }
+    }
+}
+
 /// Generates the lexer code
 struct Generator {
     let graph: Graph
@@ -37,7 +48,7 @@ struct Generator {
 
             functionMapping[nodeId] = """
             func \(ident) (_ lexer: inout LexerMachine<Self>) throws {
-                \(body)
+                \(indented: body)
             }
             """
         }
@@ -101,15 +112,15 @@ struct Generator {
 
         return """
         guard let scalar = lexer.peak() else {
-            \(miss)
+            \(indented: miss)
             return
         }
 
         switch scalar {
-            \(branches.joined(separator: "\n"))
+            \(indented: branches.joined(separator: "\n"))
 
             case _:
-            \(miss)
+            \(indented: miss)
         }
         """
     }
@@ -125,7 +136,7 @@ struct Generator {
 
         return """
         guard let scalars = lexer.peak(for: \(node.seq.count)) else {
-            \(miss)
+            \(indented: miss)
             return
         }
 
@@ -133,7 +144,7 @@ struct Generator {
             try lexer.bump(by: \(node.seq.count))
             try \(generateFuncIdent(nodeId: node.then))(&lexer)
         } else {
-            \(miss)
+            \(indented: miss)
         }
         """
     }
