@@ -303,23 +303,27 @@ extension Graph {
                     if case .Literal(let bytes) = child {
                         buffer.append(bytes)
                     } else {
-                        let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
-                        buffer.removeAll()
+                        if buffer.count > 0 {
+                            let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
+                            succ = try push(.Literal(bytes), succ)
+                            buffer.removeAll()
+                        }
 
-                        succ = try push(.Literal(bytes), succ)
                         succ = try push(child, succ)
                     }
                 }
 
                 // clean up buffer and
                 // push the first to complete the chain, succ <- ... <- 1 <- 0
-                if case .Literal(var lastBytes) = concat[0] {
+                if case .Literal(let lastBytes) = concat[0] {
                     buffer.append(lastBytes)
                     let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
                     succ = try push(.Literal(bytes), succ, miss, reserved)
                 } else {
-                    let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
-                    succ = try push(.Literal(bytes), succ)
+                    if buffer.count > 0 {
+                        let bytes = buffer.reversed().reduce(into: []) { $0.append(contentsOf: $1) }
+                        succ = try push(.Literal(bytes), succ)
+                    }
                     succ = try push(concat[0], succ, miss, reserved)
                 }
             }

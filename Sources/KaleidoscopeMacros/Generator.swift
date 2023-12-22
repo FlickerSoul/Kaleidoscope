@@ -130,6 +130,7 @@ struct Generator {
         }
 
         if \(node.seq.toCode()) == scalars {
+            try lexer.bump(by: \(node.seq.count))
             try \(generateFuncIdent(nodeId: node.then))(&lexer)
         } else {
             \(miss)

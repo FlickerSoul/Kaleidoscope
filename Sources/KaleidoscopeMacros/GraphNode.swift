@@ -210,7 +210,7 @@ public extension Node {
                 while index < sortedHits.count {
                     // get the one we are merging
                     var curr: HIR.ScalarByteRange? = sortedHits[index]
-                    var currId = combined[curr!]!
+                    let currId = combined[curr!]!
 
                     // prepare spaces, and get every ranges that have intersection with curr
                     var stack: [Node.BranchHit] = []
@@ -500,7 +500,12 @@ public extension Node {
         }
 
         public var description: String {
-            return seq.map { Unicode.Scalar($0)!.escaped(asASCII: true) }.joined()
+            var des = "`\(seq.map { Unicode.Scalar($0)!.escaped(asASCII: true) }.joined())` => \(then)"
+            if let miss = miss {
+                des += " | _ => \(miss)"
+            }
+
+            return des
         }
     }
 }

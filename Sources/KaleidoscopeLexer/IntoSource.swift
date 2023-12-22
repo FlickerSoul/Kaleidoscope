@@ -11,7 +11,7 @@ extension String: Into {
     public typealias IntoType = LexerProtocol.Source
 
     public func into() -> IntoType {
-        return self.data(using: .utf32BigEndian)!.withUnsafeBytes { Array($0.bindMemory(to: UInt32.self)) }
+        return self.map { $0.unicodeScalars.first!.value }
     }
 }
 

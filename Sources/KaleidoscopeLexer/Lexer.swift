@@ -260,7 +260,7 @@ public extension LexerMachine {
             return nil
         }
 
-        return source[source.index(source.startIndex, offsetBy: index)]
+        return source[index]
     }
 
     @inline(__always)
