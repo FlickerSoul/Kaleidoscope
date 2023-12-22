@@ -13,16 +13,16 @@ enum TestError: Error {
     case CannotGenerateCharacterSequence
 }
 
-func characters(_ start: Character, _ end: Character, inverted: Bool = false) -> HIR.Scalars {
+func characters(_ start: Character, _ end: Character, inverted: Bool = false) -> HIR.ScalarByteRanges {
     return [start.scalarByte ... end.scalarByte]
 }
 
 func disemableString(_ string: String) -> HIR {
-    return .Concat(string.unicodeScalars.map { .Literal($0.scalar) })
+    return .Concat(string.map { .Literal($0.scalarBytes) })
 }
 
 func literal(_ char: Character) -> HIR {
-    return .Literal(char.scalar)
+    return .Literal(char.scalarBytes)
 }
 
 final class HIRTests: XCTestCase {
