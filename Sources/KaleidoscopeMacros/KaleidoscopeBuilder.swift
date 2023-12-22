@@ -121,13 +121,13 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
         extension \(raw: enumIdent): LexerProtocol {
             typealias TokenType = Self
         
-            public static func lex(_ lexer: inout LexerMachine<Self>) throws {
+            public static func lex<RawSource>(_ lexer: inout LexerMachine<Self, RawSource>) throws {
                 \(raw: generator.buildFunctions())
         
                 try \(raw: generator.generateFuncIdent(nodeId: rootId))(&lexer)
             }
         
-            public static func lexer(source: Self.Source) -> LexerMachine<Self> {
+            public static func lexer<RawSource>(source: RawSource) -> LexerMachine<Self, RawSource> {
                 return LexerMachine(source: source)
             }
         }

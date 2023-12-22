@@ -9,7 +9,7 @@
 import XCTest
 
 func branch(_ children: [Character: NodeId], _ miss: NodeId? = nil, inverted: Bool = false) -> Node {
-    return .Branch(.init(branches: Dictionary(uniqueKeysWithValues: children.map { ($0.scalar, $1) }), miss: miss))
+    return .Branch(.init(branches: Dictionary(uniqueKeysWithValues: children.map { ($0.scalarByte.scalarByteRange, $1) }), miss: miss))
 }
 
 func branch(_ children: [Node.BranchHit: NodeId], _ miss: NodeId? = nil, inverted: Bool = false) -> Node {

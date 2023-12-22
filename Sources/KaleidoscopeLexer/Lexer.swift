@@ -25,7 +25,7 @@ public protocol LexerProtocol {
     typealias TokenStream = [TokenType]
 
     static func lex<RawSource>(_ lexer: inout LexerMachine<Self, RawSource>) throws
-    static func lexer<RawSource>(source: any Into<Source>) -> LexerMachine<Self, RawSource>
+    static func lexer<RawSource>(source: RawSource) -> LexerMachine<Self, RawSource>
 }
 
 public enum TokenResult<Token: LexerProtocol>: Equatable, Into {

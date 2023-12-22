@@ -36,7 +36,7 @@ struct Generator {
             let ident = generateFuncIdent(nodeId: nodeId)
 
             functionMapping[nodeId] = """
-            func \(ident) (_ lexer: inout LexerMachine<Self>) throws {
+            func \(ident) (_ lexer: inout LexerMachine<Self, RawSource>) throws {
                 \(body)
             }
             """
@@ -132,13 +132,13 @@ struct Generator {
         if let missId = node.miss?.miss {
             miss = "try \(generateFuncIdent(nodeId: missId))(&lexer)"
         } else {
-            miss = ""
+            miss = "try lexer.error()"
         }
 
         return """
         guard let scalars = lexer.peak(for: \(node.seq.count)) else {
             \(miss)
-            reutrn
+            return
         }
 
         if \(node.seq.toCode()) == scalars {
