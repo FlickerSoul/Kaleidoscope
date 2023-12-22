@@ -126,11 +126,7 @@ final class TestBenchMark: XCTestCase {
     func testBenchCorrect() throws {
         for (index, (benchSource, tokenNum)) in zip(BENCH_SOURCE, TOKEN_NUMs).enumerated() {
             XCTContext.runActivity(named: "test parsing the \(index)th test with \(tokenNum) tokens") { _ in
-                let startTime = Date()
                 let tokens = Array(BenchTestToken.lexer(source: benchSource))
-                let endTime = Date()
-
-                let elapsedTime = endTime.timeIntervalSince(startTime)
 
                 _ = tokens.map { try! $0.get() }
 
