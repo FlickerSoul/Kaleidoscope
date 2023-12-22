@@ -430,6 +430,36 @@ extension Graph {
 
         try lhsContent.merge(other: rhsContent, graph: &self)
 
+        var stack = OrderedSet<NodeId>()
+
+        // flatten the miss in the branch
+        flatten: while let miss = lhsContent.miss {
+            if stack.contains(miss) {
+                break
+            }
+
+            stack.append(miss)
+
+            let toMerge: Node.BranchContent
+
+            switch get(node: miss) {
+            case .Branch(let branchContent):
+                toMerge = branchContent.copy()
+            case .Seq(let seqContent):
+                toMerge = seqContent.copy().toBranch(graph: &self)
+            case _:
+                break flatten
+            }
+
+            // if next miss is not known yet, break
+            if let nextMiss = toMerge.miss, get(node: nextMiss) == nil {
+                break
+            }
+
+            lhsContent.miss = nil
+            try lhsContent.merge(other: toMerge, graph: &self)
+        }
+
         let into = try insert(lhsContent, into)
 
         return into
