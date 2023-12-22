@@ -20,12 +20,14 @@ public protocol Into<IntoType> {
 
 public protocol LexerProtocol {
     associatedtype TokenType: LexerProtocol
+    associatedtype RawSource: BidirectionalCollection & Into<Source>
+
     typealias Source = [UInt32]
     typealias Slice = Source.SubSequence
     typealias TokenStream = [TokenType]
 
-    static func lex<RawSource>(_ lexer: inout LexerMachine<Self, RawSource>) throws
-    static func lexer<RawSource>(source: RawSource) -> LexerMachine<Self, RawSource>
+    static func lex(_ lexer: inout LexerMachine<Self>) throws
+    static func lexer(source: RawSource) -> LexerMachine<Self>
 }
 
 public enum TokenResult<Token: LexerProtocol>: Equatable, Into {
@@ -59,19 +61,17 @@ public enum TokenResult<Token: LexerProtocol>: Equatable, Into {
     }
 }
 
-public struct LexerMachine<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection> {
-    public typealias RawSlice = RawSource.SubSequence
-
-    let rawSource: RawSource
+public struct LexerMachine<Token: LexerProtocol> {
+    let rawSource: Token.RawSource
     let source: Token.Source
     var token: TokenResult<Token>?
     var tokenStart: Int
     var tokenEnd: Int
     var failed: Bool
 
-    public init(source: RawSource, token: TokenResult<Token>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
-        self.rawSource = source
-        self.source = rawSource.into()
+    public init(raw: Token.RawSource, token: TokenResult<Token>? = nil, tokenStart: Int = 0, tokenEnd: Int = 0) {
+        self.rawSource = raw
+        self.source = raw.into()
         self.token = token
         self.tokenStart = tokenStart
         self.tokenEnd = tokenEnd
@@ -89,14 +89,14 @@ public struct LexerMachine<Token: LexerProtocol, RawSource: Into<Token.Source> &
     }
 
     @inline(__always)
-    public var rawSlice: RawSlice {
+    public var rawSlice: Token.RawSource.SubSequence {
         let start = rawSource.startIndex
         let range = rawSource.index(start, offsetBy: tokenStart) ..< rawSource.index(start, offsetBy: tokenEnd)
         return rawSource[range]
     }
 
     @inline(__always)
-    public var rawRemainder: RawSlice {
+    public var rawRemainder: Token.RawSource.SubSequence {
         let start = rawSource.startIndex
         let range = rawSource.index(start, offsetBy: tokenEnd) ..< rawSource.index(start, offsetBy: boundary)
 
@@ -133,17 +133,17 @@ public struct LexerMachine<Token: LexerProtocol, RawSource: Into<Token.Source> &
     }
 
     @inline(__always)
-    public var spanned: SpannedLexerIter<Token, RawSource> {
+    public var spanned: SpannedLexerIter<Token> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    public var sliced: SlicedLexerIter<Token, RawSource> {
+    public var sliced: SlicedLexerIter<Token> {
         return .init(lexer: self)
     }
 
     @inline(__always)
-    public var spannedAndSliced: SpannedSlicedLexerIter<Token, RawSource> {
+    public var spannedAndSliced: SpannedSlicedLexerIter<Token> {
         return .init(lexer: self)
     }
 
@@ -208,8 +208,8 @@ extension LexerMachine: Sequence, IteratorProtocol {
     }
 }
 
-public struct SpannedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token, RawSource>
+public struct SpannedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
+    var lexer: LexerMachine<Token>
 
     public mutating func next() -> (Result<Token, Error>, Range<Int>)? {
         if let token = lexer.next() {
@@ -220,10 +220,12 @@ public struct SpannedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Sourc
     }
 }
 
-public struct SlicedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token, RawSource>
+public struct SlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
+    public typealias Element = (Result<Token, Error>, Token.RawSource.SubSequence)
 
-    public mutating func next() -> (Result<Token, Error>, RawSource.SubSequence)? {
+    var lexer: LexerMachine<Token>
+
+    public mutating func next() -> Element? {
         if let token = lexer.next() {
             return (token, lexer.rawSlice)
         } else {
@@ -232,10 +234,12 @@ public struct SlicedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source
     }
 }
 
-public struct SpannedSlicedLexerIter<Token: LexerProtocol, RawSource: Into<Token.Source> & BidirectionalCollection>: Sequence, IteratorProtocol {
-    var lexer: LexerMachine<Token, RawSource>
+public struct SpannedSlicedLexerIter<Token: LexerProtocol>: Sequence, IteratorProtocol {
+    public typealias Element = (Result<Token, Error>, Range<Int>, Token.RawSource.SubSequence)
 
-    public mutating func next() -> (Result<Token, Error>, Range<Int>, RawSource.SubSequence)? {
+    var lexer: LexerMachine<Token>
+
+    public mutating func next() -> Element? {
         if let token = lexer.next() {
             return (token, lexer.span, lexer.rawSlice)
         } else {

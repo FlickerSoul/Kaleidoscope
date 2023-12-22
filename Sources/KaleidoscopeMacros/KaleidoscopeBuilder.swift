@@ -120,15 +120,16 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
         let result: DeclSyntax = try """
         extension \(raw: enumIdent): LexerProtocol {
             typealias TokenType = Self
+            typealias RawSource = String
         
-            public static func lex<RawSource>(_ lexer: inout LexerMachine<Self, RawSource>) throws {
+            public static func lex(_ lexer: inout LexerMachine<Self>) throws {
                 \(raw: generator.buildFunctions())
         
                 try \(raw: generator.generateFuncIdent(nodeId: rootId))(&lexer)
             }
         
-            public static func lexer<RawSource>(source: RawSource) -> LexerMachine<Self, RawSource> {
-                return LexerMachine(source: source)
+            public static func lexer(source: RawSource) -> LexerMachine<Self> {
+                return LexerMachine(raw: source)
             }
         }
         """

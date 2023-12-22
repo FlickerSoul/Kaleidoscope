@@ -36,7 +36,7 @@ struct Generator {
             let ident = generateFuncIdent(nodeId: nodeId)
 
             functionMapping[nodeId] = """
-            func \(ident) (_ lexer: inout LexerMachine<Self, RawSource>) throws {
+            func \(ident) (_ lexer: inout LexerMachine<Self>) throws {
                 \(body)
             }
             """

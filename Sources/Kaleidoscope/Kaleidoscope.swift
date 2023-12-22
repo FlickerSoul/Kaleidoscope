@@ -7,13 +7,13 @@ import SwiftSyntax
 // MARK: - callback type
 
 /// Token callback type.
-public typealias CaseCallbackType<T: LexerProtocol, RawSource: Into<[UInt32]> & BidirectionalCollection, R> = (inout LexerMachine<T, RawSource>) -> R
+public typealias CaseCallbackType<T: LexerProtocol, R> = (inout LexerMachine<T>) -> R
 
 // MARK: - Enum Case Decorators
 
 /// Token definition macro, with a callback
 @attached(peer)
-public macro token<T, RawSource, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, RawSource, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro token<T: LexerProtocol, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 /// Token definition macro, without a callback
 @attached(peer)
@@ -21,7 +21,7 @@ public macro token(_ value: String, priority: UInt? = nil) = #externalMacro(modu
 
 /// Token regex definition macro, with a callback
 @attached(peer)
-public macro regex<T, RawSource, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, RawSource, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
+public macro regex<T: LexerProtocol, R>(_ value: String, priority: UInt? = nil, onMatch callback: @escaping CaseCallbackType<T, R>) = #externalMacro(module: "KaleidoscopeMacros", type: "EnumCaseRegistry")
 
 /// Token regex definition macro, without a callback
 @attached(peer)
