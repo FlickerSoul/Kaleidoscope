@@ -30,5 +30,5 @@ public macro regex(_ value: String, priority: UInt? = nil) = #externalMacro(modu
 // MARK: - Enum Builder
 
 /// Lexer Conformance Macro
-@attached(extension, conformances: LexerProtocol, names: arbitrary)
+@attached(extension, conformances: LexerProtocol, Into, names: arbitrary)
 public macro kaleidoscope(skip chars: String? = nil) = #externalMacro(module: "KaleidoscopeMacros", type: "KaleidoscopeBuilder")

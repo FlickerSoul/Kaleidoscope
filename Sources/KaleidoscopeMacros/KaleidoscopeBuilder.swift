@@ -117,7 +117,7 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
         
         var generator = Generator(graph: graph, enumIdent: enumIdent)
         
-        let result: DeclSyntax = try """
+        let lexerConformance: DeclSyntax = try """
         extension \(raw: enumIdent): LexerProtocol {
             typealias TokenType = Self
             typealias RawSource = String
@@ -134,8 +134,18 @@ public struct KaleidoscopeBuilder: ExtensionMacro {
         }
         """
         
+        let tokenResultConformance: DeclSyntax = """
+        extension \(raw: enumIdent): Into {
+            public typealias IntoType = TokenResult<\(raw: enumIdent)>
+            public func into() -> IntoType {
+                return .result(self)
+            }
+        }
+        """
+        
         return [
-            result.cast(ExtensionDeclSyntax.self)
+            lexerConformance.cast(ExtensionDeclSyntax.self),
+            tokenResultConformance.cast(ExtensionDeclSyntax.self)
         ]
     }
 }
