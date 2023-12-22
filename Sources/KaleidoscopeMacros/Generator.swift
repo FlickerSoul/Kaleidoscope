@@ -55,23 +55,15 @@ struct Generator {
         let end = graph.inputs[node.endId]
         switch end.tokenType {
         case .skip:
-            return """
-            try lexer.skip()
-            """
+            return "try lexer.skip()"
         case .standalone:
-            return """
-            try lexer.setToken(\(enumIdent).\(end.token))
-            """
+            return "try lexer.setToken(\(enumIdent).\(end.token))"
         case .callback(let callbackDetail):
             switch callbackDetail {
             case .Named(let ident):
-                return """
-                try lexer.setToken(\(enumIdent).\(end.token)(\(ident)(&lexer)))
-                """
+                return "try lexer.setToken(\(enumIdent).\(end.token)(\(ident)(&lexer)))"
             case .Lambda(let lambda):
-                return """
-                try lexer.setToken(\(enumIdent).\(end.token)(\(lambda)(&lexer)))
-                """
+                return "try lexer.setToken(\(enumIdent).\(end.token)(\(lambda)(&lexer)))"
             }
         }
     }
@@ -102,13 +94,9 @@ struct Generator {
 
         let miss: String
         if let missId = node.miss {
-            miss = """
-                try \(generateFuncIdent(nodeId: missId))(&lexer)
-            """
+            miss = "try \(generateFuncIdent(nodeId: missId))(&lexer)"
         } else {
-            miss = """
-                try lexer.error()
-            """
+            miss = "try lexer.error()"
         }
 
         return """
