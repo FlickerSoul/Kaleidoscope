@@ -37,6 +37,9 @@ enum CallbackTest: Equatable {
 
     @regex("//.*?", onMatch: toSubstring)
     case Comment(Substring)
+
+    @token(".")
+    case Dot
 }
 
 final class TestTokenizer: XCTestCase {
@@ -45,6 +48,9 @@ final class TestTokenizer: XCTestCase {
     }
 
     func testCallback() throws {
-        XCTAssertEqual(CallbackTest.lexer(source: "100 1.5 what // this is a comment").toUnwrappedArray(), [CallbackTest.Number(100), CallbackTest.Double(1.5), CallbackTest.What("what"), CallbackTest.Comment("// this is a comment")])
+        XCTAssertEqual(
+            CallbackTest.lexer(source: "100 1.5 .6 what . // this is a comment").toUnwrappedArray(),
+            [CallbackTest.Number(100), CallbackTest.Double(1.5), CallbackTest.Double(0.6), CallbackTest.What("what"), CallbackTest.Dot, CallbackTest.Comment("// this is a comment")]
+        )
     }
 }
