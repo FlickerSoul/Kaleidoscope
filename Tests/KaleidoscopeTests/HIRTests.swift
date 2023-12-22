@@ -64,6 +64,10 @@ final class HIRTests: XCTestCase {
                 "(foo|bar)+?",
                 .success(.Concat([.Alternation([disemableString("foo"), disemableString("bar")]), .Loop(.Alternation([disemableString("foo"), disemableString("bar")]))]))
             ),
+            (
+                ".",
+                .success(.Class([HIR.ScalarByte.min ... HIR.ScalarByte.max]))
+            ),
         ]
 
         for (regexContent, expected) in testCases {

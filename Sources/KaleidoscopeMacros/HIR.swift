@@ -240,12 +240,12 @@ public extension HIR {
             }
             self = .Literal(scalar.scalarBytes)
         case .dot:
-            self = .Literal(("." as Character).scalarBytes)
-        case .caretAnchor:
-            self = .Literal(("^" as Character).scalarBytes)
-        case .dollarAnchor:
-            self = .Literal(("$" as Character).scalarBytes)
-        case _:
+            // wildcard
+            self = .Class([HIR.SCALAR_RANGE])
+        case .caretAnchor, .dollarAnchor, _:
+            // start of the line
+            // end of the line
+            // and other things
             throw HIRParsingError.NotSupportedAtomKind
         }
     }

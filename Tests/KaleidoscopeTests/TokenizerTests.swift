@@ -26,7 +26,7 @@ let toSubstring = { (lexer: inout LexerMachine<CallbackTest>) in lexer.rawSlice 
 
 @kaleidoscope(skip: " ")
 enum CallbackTest: Equatable {
-    @regex("[0-9]*?.[0-9]+?", onMatch: convertDouble)
+    @regex(#"[0-9]*?\.[0-9]+?"#, onMatch: convertDouble)
     case Double(Double)
 
     @regex("[0-9]+?", onMatch: convertInt)
@@ -34,6 +34,9 @@ enum CallbackTest: Equatable {
 
     @token("what", onMatch: toSubstring)
     case What(Substring)
+
+    @regex("//.*?", onMatch: toSubstring)
+    case Comment(Substring)
 }
 
 final class TestTokenizer: XCTestCase {
@@ -42,6 +45,6 @@ final class TestTokenizer: XCTestCase {
     }
 
     func testCallback() throws {
-        XCTAssertEqual(CallbackTest.lexer(source: "100 1.5 what").toUnwrappedArray(), [CallbackTest.Number(100), CallbackTest.Double(1.5), CallbackTest.What("what")])
+        XCTAssertEqual(CallbackTest.lexer(source: "100 1.5 what // this is a comment").toUnwrappedArray(), [CallbackTest.Number(100), CallbackTest.Double(1.5), CallbackTest.What("what"), CallbackTest.Comment("// this is a comment")])
     }
 }
