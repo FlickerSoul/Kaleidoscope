@@ -14,4 +14,5 @@ enum KaleidoscopeError: Error {
     case ParsingError
     case ExpectingString
     case ExpectingIntegerLiteral
+    case OnlyFillOrCreateCallbackIsAllowed
 }

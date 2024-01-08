@@ -22,8 +22,10 @@ enum CallbackType {
 
 /// Types of tokens, based on how they are processed
 enum TokenType {
-    /// A token with a callback that transforms the token string slice into actual value
-    case callback(CallbackType)
+    /// A token with a fill callback that transforms the token string slice into actual value
+    case fillCallback(CallbackType)
+    /// A token with a create callback that gives a into token type
+    case createCallback(CallbackType)
     /// A token that does not carry any value
     case standalone
     /// A skip mark that signals the lexer to continue matching the next one

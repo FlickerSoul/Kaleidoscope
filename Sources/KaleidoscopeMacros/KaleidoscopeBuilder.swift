@@ -19,7 +19,8 @@ let KALEIDOSCOPE_REGEX_NAME: String = "regex"
 let KALEIDOSCOPE_TOKEN_NAME: String = "token"
 
 let KALEIDOSCOPE_PRIORITY_OPTION: String = "priority"
-let KALEIDOSCOPE_ON_MATCH_OPTION: String = "onMatch"
+let KALEIDOSCOPE_FILL_CALLBACK_OPTION: String = "fillCallback"
+let KALEIDOSCOPE_CREATE_CALLBACK_OPTION: String = "createCallback"
 
 /// This extension macro generates an extension to the decorated enum and make it conform to the lexer protocol
 /// so that the decorated enum can be a tokenizer.
@@ -187,13 +188,27 @@ func parse(_ attr: AttributeSyntax, isToken: Bool) throws -> AttrMatchInfo {
     var matchCallback: TokenType = .standalone
     var priority: UInt? = nil
     
-    if let foundExpr = findExpression(KALEIDOSCOPE_ON_MATCH_OPTION, in: arguments)?.expression {
+    if let foundExpr = findExpression(KALEIDOSCOPE_FILL_CALLBACK_OPTION, in: arguments)?.expression {
         if let lambda = foundExpr.as(ClosureExprSyntax.self) {
             // TODO: this might be wrong
-            matchCallback = .callback(.Lambda(lambda.description))
+            matchCallback = .fillCallback(.Lambda(lambda.description))
         } else {
             // TODO: this might be wrong
-            matchCallback = .callback(.Named(foundExpr.description))
+            matchCallback = .fillCallback(.Named(foundExpr.description))
+        }
+    }
+    
+    if let foundExpr = findExpression(KALEIDOSCOPE_CREATE_CALLBACK_OPTION, in: arguments)?.expression {
+        if case .standalone = matchCallback {
+            if let lambda = foundExpr.as(ClosureExprSyntax.self) {
+                // TODO: this might be wrong
+                matchCallback = .createCallback(.Lambda(lambda.description))
+            } else {
+                // TODO: this might be wrong
+                matchCallback = .createCallback(.Named(foundExpr.description))
+            }
+        } else {
+            throw KaleidoscopeError.OnlyFillOrCreateCallbackIsAllowed
         }
     }
     

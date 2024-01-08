@@ -148,11 +148,11 @@ public struct LexerMachine<Token: LexerProtocol> {
     }
 
     @inline(__always)
-    public mutating func setToken(_ token: Token) throws {
+    public mutating func setToken(_ token: any Into<TokenResult<Token>>) throws {
         guard self.token == nil || self.token == .skipped else {
             throw LexerError.DuplicatedToken
         }
-        self.token = .result(token)
+        self.token = token.into()
     }
 
     @inline(__always)
@@ -199,7 +199,7 @@ extension LexerMachine: Sequence, IteratorProtocol {
             case .result(let token):
                 return .success(token)
             case .skipped:
-                return nil
+                return next()
             }
         } catch {
             failed = true

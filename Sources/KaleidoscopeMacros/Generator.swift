@@ -69,12 +69,19 @@ struct Generator {
             return "try lexer.skip()"
         case .standalone:
             return "try lexer.setToken(\(enumIdent).\(end.token))"
-        case .callback(let callbackDetail):
+        case .fillCallback(let callbackDetail):
             switch callbackDetail {
             case .Named(let ident):
                 return "try lexer.setToken(\(enumIdent).\(end.token)(\(ident)(&lexer)))"
             case .Lambda(let lambda):
                 return "try lexer.setToken(\(enumIdent).\(end.token)(\(lambda)(&lexer)))"
+            }
+        case .createCallback(let callbackDetail):
+            switch callbackDetail {
+            case .Named(let ident):
+                return "try lexer.setToken(\(ident)(&lexer))"
+            case .Lambda(let lambda):
+                return "try lexer.setToken(\(lambda)(&lexer))"
             }
         }
     }
